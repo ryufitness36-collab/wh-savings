@@ -1,6 +1,6 @@
 // オフライン対応用サービスワーカー
 // アプリのファイルを更新したら CACHE の番号を上げると、古いキャッシュが入れ替わります。
-const CACHE = "wh-savings-v1";
+const CACHE = "wh-savings-v2";
 const ASSETS = [
   "./",
   "./index.html",

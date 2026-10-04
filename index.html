@@ -55,6 +55,9 @@ h1{font-size:1.15rem;font-weight:700;margin:4px 0 2px}
 .status{margin:8px 0 0;font-size:.95rem}
 .status b{color:var(--ocean)}
 .status.done b{color:var(--good)}
+.minline{margin:4px 0 0;font-size:.9rem;color:var(--muted)}
+.minline b{color:var(--ink)}
+.minline.clear{color:var(--good);font-weight:700}
 
 section{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:16px}
 h2{font-size:1rem;margin:0 0 10px;font-weight:700}
@@ -107,6 +110,12 @@ button:focus-visible{outline:2px solid var(--ocean);outline-offset:2px}
       <text x="18" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">日本</text>
       <circle cx="302" cy="92" r="6" fill="var(--sand)"/>
       <text x="302" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">オーストラリア</text>
+      <g id="minFlag">
+        <circle r="3.5" fill="var(--paper)" stroke="var(--good)" stroke-width="2"/>
+        <path d="M0 0 V-17" stroke="var(--good)" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M0 -17 L10 -13.5 L0 -10 Z" fill="var(--good)"/>
+        <text x="0" y="-21" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--good)">95万</text>
+      </g>
       <g id="plane"><path d="M-8 0 L8 0 M0 0 L-4 -7 M0 0 L-4 7 M-7 0 L-9 -3 M-7 0 L-9 3" stroke="var(--ocean)" stroke-width="2.6" stroke-linecap="round" fill="none"/></g>
     </svg>
   </div>
@@ -115,13 +124,14 @@ button:focus-visible{outline:2px solid var(--ocean);outline-offset:2px}
     <div class="now" id="total">0<small>万円</small></div>
     <div class="goal" id="goalText">目標 110万円</div>
   </div>
+  <p class="minline" id="minLine"></p>
   <p class="status" id="status"></p>
 
   <section>
     <h2>目標額</h2>
     <div class="targets" id="targets">
       <button data-v="aud">AUD 7,000 基準<span id="audTargetYen">為替で自動計算</span></button>
-      <button data-v="850000">85万円<span>最低ライン</span></button>
+      <button data-v="950000">95万円<span>最低ライン</span></button>
       <button data-v="1100000">110万円<span>ゴールドコースト</span></button>
       <button data-v="1200000">120万円<span>メルボルン</span></button>
     </div>
@@ -142,6 +152,11 @@ button:focus-visible{outline:2px solid var(--ocean);outline-offset:2px}
       <div class="aud-big" id="audLand">AUD 0</div>
       <div class="bar"><i id="audBar"></i></div>
       <p class="note">円で払う費用（航空券・保険・住民税など）30万円とビザ代AUD 840を差し引いた額です。</p>
+    </div>
+    <div class="row" style="display:block">
+      <div style="font-size:.85rem;color:var(--muted)">最低ライン（95万円）で着いた時の手元</div>
+      <div class="aud-big" id="audMin">AUD 0</div>
+      <p class="note">95万円から同じく円の費用30万円とビザ代AUD 840を差し引いた額です。</p>
     </div>
   </section>
 
@@ -173,7 +188,8 @@ const CHECKS = [
   {id:"hostel", name:"最初の宿の予約", cost:"6〜10万円"}
 ];
 const DEFAULT = {start:660000, target:"aud", rate:115, months:{}, checks:{}};
-const YEN_COSTS = 300000, VISA_AUD = 840, LAND_AUD = 7000;
+const YEN_COSTS = 300000, VISA_AUD = 840, LAND_AUD = 7000, MIN_YEN = 950000;
+const TARGETS = ["aud", 950000, 1100000, 1200000];
 const goalYen = () => state.target === "aud" ? Math.round((LAND_AUD + VISA_AUD) * state.rate + YEN_COSTS) : state.target;
 const audFmt = n => "AUD " + Math.round(n).toLocaleString("en-AU");
 let state = JSON.parse(JSON.stringify(DEFAULT));
@@ -241,6 +257,14 @@ function render(fillInputs){
   const p = arc.getPointAtLength(L*pct), p2 = arc.getPointAtLength(Math.min(L, L*pct+1));
   const ang = Math.atan2(p2.y-p.y, p2.x-p.x)*180/Math.PI || 0;
   document.getElementById("plane").setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${ang})`);
+  const fp = arc.getPointAtLength(L*Math.min(1, MIN_YEN/goal));
+  document.getElementById("minFlag").setAttribute("transform", `translate(${fp.x} ${fp.y})`);
+
+  // minimum line (always shown, independent of the chosen target)
+  const minLeft = MIN_YEN - t;
+  const ml = document.getElementById("minLine");
+  if (minLeft <= 0){ ml.className = "minline clear"; ml.textContent = "最低ラインクリア！"; }
+  else { ml.className = "minline"; ml.innerHTML = `最低ライン 95万円まであと <b>${yen(minLeft)}万円</b>`; }
 
   // remaining months = months from current month through March 2027
   const ck = curKey();
@@ -253,9 +277,9 @@ function render(fillInputs){
     st.className = "status done";
     st.innerHTML = `<b>目標達成！</b> ${yen(-left)}万円の上乗せができています。`;
   } else if (remainingMonths > 0){
-    const per = left / remainingMonths;
+    const minPace = minLeft > 0 ? `最低ラインまで月 <b>${yen(minLeft/remainingMonths)}万円</b>` : "最低ラインはクリア済み";
     st.className = "status";
-    st.innerHTML = `あと <b>${yen(left)}万円</b>。残り${remainingMonths}か月なら月 <b>${yen(per)}万円</b> ペースです。`;
+    st.innerHTML = `あと <b>${yen(left)}万円</b>。残り${remainingMonths}か月で、${minPace}／目標まで月 <b>${yen(left/remainingMonths)}万円</b> のペースです。`;
   } else {
     st.className = "status";
     st.innerHTML = `あと <b>${yen(left)}万円</b> で目標です。`;
@@ -277,6 +301,7 @@ function render(fillInputs){
   document.getElementById("audTotal").innerHTML = `${audFmt(t/state.rate)}<small>（${yen(t)}万円）</small>`;
   const land = (t - YEN_COSTS)/state.rate - VISA_AUD;
   document.getElementById("audLand").textContent = audFmt(Math.max(0,land));
+  document.getElementById("audMin").textContent = audFmt(Math.max(0,(MIN_YEN - YEN_COSTS)/state.rate - VISA_AUD));
   document.getElementById("audBar").style.width = `${Math.max(0,Math.min(100,land/LAND_AUD*100))}%`;
   CHECKS.forEach(c=>{
     const box = document.getElementById("c-"+c.id);
@@ -312,6 +337,8 @@ function merge(obj){
   if (!obj || typeof obj !== "object") return;
   state = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), obj);
   if (!(state.rate>50 && state.rate<300)) state.rate = 115;
+  if (state.target === 850000) state.target = MIN_YEN; // 85万円の選択肢は廃止
+  if (!TARGETS.includes(state.target)) state.target = "aud";
   state.months = Object.assign({}, obj.months||{});
   state.checks = Object.assign({}, obj.checks||{});
 }
