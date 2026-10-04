@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ワーホリ貯金トラッカー</title>
+<meta name="description" content="オーストラリアのワーホリに向けた貯金を記録するトラッカー">
+<meta name="theme-color" content="#1F6F8B" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1E25" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ワーホリ貯金">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#E7F0F4; --paper:#FBFDFE; --ink:#1C3440; --muted:#5D7682;
+  --ocean:#1F6F8B; --sand:#E9B872; --line:#CBDCE3; --good:#2E8B6A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --sky:#0F1E25; --paper:#16282F; --ink:#E4EEF2; --muted:#93AAB4;
+    --ocean:#5DB4D2; --sand:#E9B872; --line:#2A4049; --good:#5CC79E;
+  }
+}
+:root[data-theme="dark"]{
+  --sky:#0F1E25; --paper:#16282F; --ink:#E4EEF2; --muted:#93AAB4;
+  --ocean:#5DB4D2; --sand:#E9B872; --line:#2A4049; --good:#5CC79E;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--sky);color:var(--ink);
+  font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  line-height:1.6;-webkit-font-smoothing:antialiased}
+main{max-width:560px;margin:0 auto;padding:20px 18px 48px}
+h1{font-size:1.15rem;font-weight:700;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:.85rem;margin:0}
+
+/* hero: flight path */
+.flight{margin:18px 0 6px;position:relative}
+.flight svg{width:100%;height:auto;display:block;overflow:visible}
+.amount{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.amount .now{font-size:2.6rem;font-weight:900;letter-spacing:-.02em;line-height:1.1}
+.amount .now small{font-size:1rem;font-weight:700;margin-left:2px}
+.amount .goal{color:var(--muted);font-size:.9rem}
+.status{margin:8px 0 0;font-size:.95rem}
+.status b{color:var(--ocean)}
+.status.done b{color:var(--good)}
+
+section{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:16px}
+h2{font-size:1rem;margin:0 0 10px;font-weight:700}
+
+.targets{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.aud-big{font-size:1.6rem;font-weight:900;line-height:1.2}
+.aud-big small{font-size:.85rem;font-weight:700;margin-left:2px}
+.bar{height:10px;border-radius:6px;background:var(--sky);border:1px solid var(--line);overflow:hidden;margin:8px 0 4px}
+.bar i{display:block;height:100%;background:var(--sand);width:0;transition:width .5s ease}
+.note{font-size:.78rem;color:var(--muted);margin:6px 0 0}
+.targets button{font:inherit;border:1.5px solid var(--line);background:transparent;color:var(--ink);
+  border-radius:12px;padding:8px 4px;cursor:pointer;line-height:1.3}
+.targets button span{display:block;font-size:.72rem;color:var(--muted)}
+.targets button[aria-pressed="true"]{border-color:var(--ocean);background:color-mix(in srgb,var(--ocean) 12%,transparent)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px dashed var(--line)}
+.row:first-of-type{border-top:0}
+.row label{font-size:.95rem}
+.row .hint{display:block;font-size:.75rem;color:var(--muted)}
+.money{display:flex;align-items:center;gap:4px}
+.money input{font:inherit;font-weight:700;width:7.5em;text-align:right;padding:6px 8px;border-radius:10px;
+  border:1.5px solid var(--line);background:var(--sky);color:var(--ink)}
+.money input:focus{outline:2px solid var(--ocean);outline-offset:1px;border-color:transparent}
+.money span{font-size:.85rem;color:var(--muted)}
+.month.past label::after{content:"";}
+.month .need{font-size:.75rem;color:var(--muted)}
+.month.hit .need{color:var(--good)}
+
+.checks .row{justify-content:flex-start}
+.checks input[type=checkbox]{width:20px;height:20px;accent-color:var(--ocean);flex:none}
+.checks .cost{margin-left:auto;font-size:.85rem;color:var(--muted);white-space:nowrap}
+.checks .done label{text-decoration:line-through;color:var(--muted)}
+
+.foot{font-size:.75rem;color:var(--muted);margin-top:14px;text-align:center}
+.reset{font:inherit;font-size:.8rem;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;margin-top:6px}
+button:focus-visible{outline:2px solid var(--ocean);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+#plane{transition:transform .6s ease}
+</style>
+</head>
+<body>
+<main>
+  <h1>オーストラリアへの貯金</h1>
+  <p class="sub" id="countdown">2027年4月の出発まで</p>
+
+  <div class="flight" aria-hidden="true">
+    <svg viewBox="0 0 320 110">
+      <path id="arc" d="M18 92 Q160 -18 302 92" fill="none" stroke="var(--line)" stroke-width="2.5" stroke-dasharray="2 7" stroke-linecap="round"/>
+      <path id="arcDone" d="M18 92 Q160 -18 302 92" fill="none" stroke="var(--ocean)" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="18" cy="92" r="5" fill="var(--ink)"/>
+      <text x="18" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">日本</text>
+      <circle cx="302" cy="92" r="6" fill="var(--sand)"/>
+      <text x="302" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">オーストラリア</text>
+      <g id="plane"><path d="M-8 0 L8 0 M0 0 L-4 -7 M0 0 L-4 7 M-7 0 L-9 -3 M-7 0 L-9 3" stroke="var(--ocean)" stroke-width="2.6" stroke-linecap="round" fill="none"/></g>
+    </svg>
+  </div>
+
+  <div class="amount">
+    <div class="now" id="total">0<small>万円</small></div>
+    <div class="goal" id="goalText">目標 110万円</div>
+  </div>
+  <p class="status" id="status"></p>
+
+  <section>
+    <h2>目標額</h2>
+    <div class="targets" id="targets">
+      <button data-v="aud">AUD 7,000 基準<span id="audTargetYen">為替で自動計算</span></button>
+      <button data-v="850000">85万円<span>最低ライン</span></button>
+      <button data-v="1100000">110万円<span>ゴールドコースト</span></button>
+      <button data-v="1200000">120万円<span>メルボルン</span></button>
+    </div>
+  </section>
+
+  <section>
+    <h2>豪ドルで見る</h2>
+    <div class="row">
+      <label for="rate">為替レート<span class="hint">1豪ドルあたり</span></label>
+      <div class="money"><input id="rate" inputmode="decimal" autocomplete="off" style="width:5em"><span>円</span></div>
+    </div>
+    <div class="row" style="display:block">
+      <div style="font-size:.85rem;color:var(--muted)">貯金の合計</div>
+      <div class="aud-big" id="audTotal">AUD 0</div>
+    </div>
+    <div class="row" style="display:block">
+      <div style="font-size:.85rem;color:var(--muted)">現地に着いた時の手元（目標 AUD 7,000）</div>
+      <div class="aud-big" id="audLand">AUD 0</div>
+      <div class="bar"><i id="audBar"></i></div>
+      <p class="note">円で払う費用（航空券・保険・住民税など）30万円とビザ代AUD 840を差し引いた額です。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>毎月の貯金</h2>
+    <div class="row">
+      <label for="start">今の貯金<span class="hint">2026年10月時点</span></label>
+      <div class="money"><input id="start" inputmode="numeric" autocomplete="off"><span>円</span></div>
+    </div>
+    <div id="months"></div>
+  </section>
+
+  <section class="checks">
+    <h2>出発前に払うもの</h2>
+    <div id="checks"></div>
+  </section>
+
+  <p class="foot" id="saveState">記録はこの端末のブラウザに保存されます</p>
+  <div style="text-align:center"><button class="reset" id="reset">記録をリセット</button></div>
+</main>
+
+<script>
+const MONTHS = ["2026-10","2026-11","2026-12","2027-01","2027-02","2027-03"];
+const CHECKS = [
+  {id:"visa", name:"ビザ申請（AUD 840）", cost:"約9.7万円"},
+  {id:"flight", name:"片道航空券", cost:"6〜12万円"},
+  {id:"insurance", name:"海外保険（1年）", cost:"15〜25万円"},
+  {id:"tax", name:"住民税の準備", cost:"所得による"},
+  {id:"hostel", name:"最初の宿の予約", cost:"6〜10万円"}
+];
+const DEFAULT = {start:660000, target:"aud", rate:115, months:{}, checks:{}};
+const YEN_COSTS = 300000, VISA_AUD = 840, LAND_AUD = 7000;
+const goalYen = () => state.target === "aud" ? Math.round((LAND_AUD + VISA_AUD) * state.rate + YEN_COSTS) : state.target;
+const audFmt = n => "AUD " + Math.round(n).toLocaleString("en-AU");
+let state = JSON.parse(JSON.stringify(DEFAULT));
+let docRef = null, saveTimer = null;
+
+const yen = n => (Math.round(n/1000)/10).toLocaleString("ja-JP",{maximumFractionDigits:1});
+const parse = s => { const n = parseInt(String(s).replace(/[^\d]/g,""),10); return isNaN(n)?0:n; };
+const monthLabel = k => { const [y,m]=k.split("-"); return `${y}年${+m}月`; };
+const curKey = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+
+function total(){ return state.start + MONTHS.reduce((a,k)=>a+(state.months[k]||0),0); }
+
+function buildStatic(){
+  const mWrap = document.getElementById("months");
+  mWrap.innerHTML = "";
+  MONTHS.forEach(k=>{
+    const row = document.createElement("div");
+    row.className = "row month"; row.dataset.k = k;
+    row.innerHTML = `<label for="m-${k}">${monthLabel(k)}<span class="need"></span></label>
+      <div class="money"><input id="m-${k}" inputmode="numeric" autocomplete="off" placeholder="0"><span>円</span></div>`;
+    mWrap.appendChild(row);
+    row.querySelector("input").addEventListener("input", e=>{
+      state.months[k] = parse(e.target.value); render(false); queueSave();
+    });
+    row.querySelector("input").addEventListener("blur", e=>{
+      const v = state.months[k]||0; e.target.value = v ? v.toLocaleString("ja-JP") : "";
+    });
+  });
+  const cWrap = document.getElementById("checks");
+  cWrap.innerHTML = "";
+  CHECKS.forEach(c=>{
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<input type="checkbox" id="c-${c.id}"><label for="c-${c.id}">${c.name}</label><span class="cost">${c.cost}</span>`;
+    cWrap.appendChild(row);
+    row.querySelector("input").addEventListener("change", e=>{
+      state.checks[c.id] = e.target.checked; render(false); queueSave();
+    });
+  });
+  const st = document.getElementById("start");
+  st.addEventListener("input", e=>{ state.start = parse(e.target.value); render(false); queueSave(); });
+  st.addEventListener("blur", e=>{ e.target.value = state.start.toLocaleString("ja-JP"); });
+  const rt = document.getElementById("rate");
+  rt.addEventListener("input", e=>{ const v = parseFloat(e.target.value); if (v>50 && v<300){ state.rate = v; render(false); queueSave(); } });
+  rt.addEventListener("blur", e=>{ e.target.value = state.rate; });
+  document.querySelectorAll("#targets button").forEach(b=>b.addEventListener("click",()=>{
+    state.target = b.dataset.v === "aud" ? "aud" : +b.dataset.v; render(false); queueSave();
+  }));
+  document.getElementById("reset").addEventListener("click",()=>{
+    if(!confirm("記録をすべてリセットしますか？")) return;
+    state = JSON.parse(JSON.stringify(DEFAULT)); render(true); queueSave();
+  });
+}
+
+function render(fillInputs){
+  const t = total(), goal = goalYen();
+  const pct = Math.max(0, Math.min(1, t/goal));
+  document.getElementById("total").innerHTML = `${yen(t)}<small>万円</small>`;
+  document.getElementById("goalText").textContent = `目標 ${yen(goal)}万円（${Math.round(pct*100)}%）`;
+
+  // plane along arc
+  const arc = document.getElementById("arc"), done = document.getElementById("arcDone");
+  const L = arc.getTotalLength();
+  done.style.strokeDasharray = `${L*pct} ${L}`;
+  const p = arc.getPointAtLength(L*pct), p2 = arc.getPointAtLength(Math.min(L, L*pct+1));
+  const ang = Math.atan2(p2.y-p.y, p2.x-p.x)*180/Math.PI || 0;
+  document.getElementById("plane").setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${ang})`);
+
+  // remaining months = months from current month through March 2027
+  const ck = curKey();
+  let idx = MONTHS.indexOf(ck);
+  if (ck < MONTHS[0]) idx = 0;
+  const remainingMonths = idx === -1 ? 0 : MONTHS.length - idx;
+  const left = goal - t;
+  const st = document.getElementById("status");
+  if (left <= 0){
+    st.className = "status done";
+    st.innerHTML = `<b>目標達成！</b> ${yen(-left)}万円の上乗せができています。`;
+  } else if (remainingMonths > 0){
+    const per = left / remainingMonths;
+    st.className = "status";
+    st.innerHTML = `あと <b>${yen(left)}万円</b>。残り${remainingMonths}か月なら月 <b>${yen(per)}万円</b> ペースです。`;
+  } else {
+    st.className = "status";
+    st.innerHTML = `あと <b>${yen(left)}万円</b> で目標です。`;
+  }
+
+  // per-month hint
+  document.querySelectorAll(".month").forEach(row=>{
+    const k = row.dataset.k, v = state.months[k]||0;
+    const need = row.querySelector(".need");
+    row.classList.remove("hit");
+    if (k === ck){ need.textContent = "今月"; }
+    else need.textContent = "";
+    if (v>0){ row.classList.add("hit"); need.textContent = (k===ck?"今月・":"") + "記録済み"; }
+    if (fillInputs){ row.querySelector("input").value = v ? v.toLocaleString("ja-JP") : ""; }
+  });
+
+  document.querySelectorAll("#targets button").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.v===String(state.target))));
+  document.getElementById("audTargetYen").textContent = `今のレートで${yen((LAND_AUD+VISA_AUD)*state.rate+YEN_COSTS)}万円`;
+  document.getElementById("audTotal").innerHTML = `${audFmt(t/state.rate)}<small>（${yen(t)}万円）</small>`;
+  const land = (t - YEN_COSTS)/state.rate - VISA_AUD;
+  document.getElementById("audLand").textContent = audFmt(Math.max(0,land));
+  document.getElementById("audBar").style.width = `${Math.max(0,Math.min(100,land/LAND_AUD*100))}%`;
+  CHECKS.forEach(c=>{
+    const box = document.getElementById("c-"+c.id);
+    box.checked = !!state.checks[c.id];
+    box.closest(".row").classList.toggle("done", box.checked);
+  });
+  if (fillInputs){ document.getElementById("start").value = state.start.toLocaleString("ja-JP"); document.getElementById("rate").value = state.rate; }
+
+  // countdown
+  const dep = new Date(2027,3,1), now = new Date();
+  const days = Math.ceil((dep-now)/86400000);
+  document.getElementById("countdown").textContent = days>0 ? `2027年4月の出発まであと${days}日` : "出発の月です。いってらっしゃい！";
+}
+
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 600);
+}
+let saving = false, again = false;
+async function save(){
+  try{ localStorage.setItem("wh-savings", JSON.stringify(state)); }catch(e){}
+  return;
+  if (saving){ again = true; return; }
+  saving = true;
+  try{ await docRef.set(JSON.parse(JSON.stringify(state))); setSaveText("アカウントに保存しました"); }
+  catch(e){ setSaveText("保存できませんでした。この端末にだけ残っています"); }
+  saving = false;
+  if (again){ again = false; save(); }
+}
+function setSaveText(t){ document.getElementById("saveState").textContent = t; }
+
+function merge(obj){
+  if (!obj || typeof obj !== "object") return;
+  state = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), obj);
+  if (!(state.rate>50 && state.rate<300)) state.rate = 115;
+  state.months = Object.assign({}, obj.months||{});
+  state.checks = Object.assign({}, obj.checks||{});
+}
+
+// boot: local first, then account storage if available
+buildStatic();
+try{ const raw = localStorage.getItem("wh-savings"); if (raw) merge(JSON.parse(raw)); }catch(e){}
+render(true);
+
+// PWA: オフライン用サービスワーカーを登録
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
+</script>
+</body>
+</html>
