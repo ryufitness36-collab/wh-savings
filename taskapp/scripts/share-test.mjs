@@ -223,5 +223,13 @@ check('更新履歴はブラウザから書き込めない', Boolean(fakeHist))
 const { data: bHistPersonal } = await B.client.from('task_history').select('id').eq('task_id', aPersonal.id)
 check('B は A の個人タスクの履歴を読めない', (bHistPersonal ?? []).length === 0)
 
+console.log('\n■ 保存した検索条件')
+const { error: svErr } = await B.client.from('saved_views').insert({ page: 'team', name: '自分の担当', config: { period: 'all' } })
+check('B は検索条件を保存できる', !svErr, svErr?.message)
+const { data: aViews } = await A.client.from('saved_views').select('id')
+check('A には B の保存した条件が見えない', (aViews ?? []).length === 0)
+const { error: svFake } = await A.client.from('saved_views').insert({ page: 'team', name: 'x', config: {}, owner_id: B.id })
+check('他人の名前で条件を保存できない', Boolean(svFake))
+
 console.log(`\n結果: ${passed} 件成功 / ${failed} 件失敗`)
 process.exit(failed ? 1 : 0)

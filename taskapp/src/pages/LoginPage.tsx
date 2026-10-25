@@ -1,15 +1,20 @@
-// ログイン・新規登録（メールアドレス + パスワード）
+// ログイン・新規登録・パスワード再設定メールの送信（メールアドレス + パスワード）
 import { useState } from 'react'
 import { CheckSquare } from 'lucide-react'
 import { errorMessage, isConfigured, supabase } from '../lib/supabase'
 
 export function LoginPage() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  // 期限切れ・使用済みのメールリンクを開いた場合、URL にエラーが付いて戻ってくる
+  const [error, setError] = useState(() =>
+    /error_code=otp_expired|error=access_denied/.test(window.location.hash)
+      ? 'メールのリンクの有効期限が切れているか、既に使用されています。もう一度お試しください。'
+      : '',
+  )
   const [info, setInfo] = useState('')
 
   async function submit(e: React.FormEvent) {
@@ -17,7 +22,12 @@ export function LoginPage() {
     setBusy(true)
     setError('')
     setInfo('')
-    if (mode === 'login') {
+    if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })
+      // Supabase は未登録のアドレスでも成功を返すため、登録の有無は画面からは分かりません
+      if (error) setError(errorMessage(error))
+      else setInfo('登録されているメールアドレスであれば、パスワード再設定用のリンクを送信しました。メールをご確認ください。')
+    } else if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(errorMessage(error))
     } else {
@@ -50,6 +60,12 @@ export function LoginPage() {
         )}
 
         <form onSubmit={submit} className="card space-y-4 p-6 shadow-sm">
+          {mode === 'forgot' ? (
+            <div>
+              <h2 className="text-sm font-semibold">パスワードの再設定</h2>
+              <p className="mt-1 text-xs text-gray-500">登録したメールアドレスに、新しいパスワードを設定するためのリンクを送ります。</p>
+            </div>
+          ) : (
           <div className="seg w-full" role="group">
             <button type="button" className="flex-1" aria-pressed={mode === 'login'} onClick={() => setMode('login')}>
               ログイン
@@ -58,6 +74,7 @@ export function LoginPage() {
               新規登録
             </button>
           </div>
+          )}
           {mode === 'signup' && (
             <div>
               <label className="label" htmlFor="name">表示名</label>
@@ -68,6 +85,7 @@ export function LoginPage() {
             <label className="label" htmlFor="email">メールアドレス</label>
             <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
           </div>
+          {mode !== 'forgot' && (
           <div>
             <label className="label" htmlFor="password">パスワード（6文字以上）</label>
             <input
@@ -81,10 +99,22 @@ export function LoginPage() {
               required
             />
           </div>
+          )}
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           {info && <p className="text-sm text-emerald-600 dark:text-emerald-400">{info}</p>}
           <button className="btn-primary w-full py-2.5" disabled={busy}>
-            {busy ? '処理中…' : mode === 'login' ? 'ログイン' : 'アカウントを作成'}
+            {busy ? '処理中…' : mode === 'login' ? 'ログイン' : mode === 'signup' ? 'アカウントを作成' : '再設定メールを送る'}
+          </button>
+          <button
+            type="button"
+            className="w-full text-center text-xs text-gray-500 hover:text-indigo-600"
+            onClick={() => {
+              setMode(mode === 'forgot' ? 'login' : 'forgot')
+              setError('')
+              setInfo('')
+            }}
+          >
+            {mode === 'forgot' ? '← ログインに戻る' : 'パスワードをお忘れですか？'}
           </button>
         </form>
       </div>

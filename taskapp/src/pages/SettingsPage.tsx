@@ -1,6 +1,6 @@
 // チーム・メンバー・招待・プロフィールなどの設定
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Copy, Download, Link2, LogOut, Shield, Trash2 } from 'lucide-react'
+import { Copy, Download, KeyRound, Link2, LogOut, Shield, Trash2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -11,6 +11,7 @@ import { Avatar } from '../components/Badges'
 import type { Invite } from '../lib/types'
 import { joinWithToken } from './JoinPage'
 import { exportJson, exportTasksCsv } from '../lib/export'
+import { PasswordFields } from './ResetPasswordPage'
 
 export function SettingsPage() {
   const { team } = useData()
@@ -406,8 +407,38 @@ function ExportSection() {
 
 function AccountSection() {
   const { signOut } = useAuth()
+  const toast = useToast()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (password !== confirm) return toast('確認用のパスワードが一致しません', 'error')
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) return toast(errorMessage(error), 'error')
+    toast('パスワードを変更しました')
+    setPassword('')
+    setConfirm('')
+    setOpen(false)
+  }
+
   return (
     <Card title="アカウント">
+      {open ? (
+        <form onSubmit={changePassword} className="mb-4 max-w-sm space-y-3">
+          <PasswordFields password={password} setPassword={setPassword} confirm={confirm} setConfirm={setConfirm} />
+          <div className="flex gap-2">
+            <button className="btn-primary" disabled={!password}>変更する</button>
+            <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>やめる</button>
+          </div>
+        </form>
+      ) : (
+        <button className="btn-secondary mr-2 mb-2" onClick={() => setOpen(true)}>
+          <KeyRound size={15} />
+          パスワードを変更
+        </button>
+      )}
       <button className="btn-secondary" onClick={signOut}>
         <LogOut size={15} />
         ログアウト

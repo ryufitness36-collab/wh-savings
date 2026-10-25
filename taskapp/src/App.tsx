@@ -6,6 +6,7 @@ import { ToastProvider } from './contexts/ToastContext'
 import { TaskEditorProvider } from './components/TaskEditor'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { HomePage } from './pages/HomePage'
 
 // ホーム以外の画面は、開いたときに読み込む（最初の表示を速くするため）
@@ -33,10 +34,12 @@ export default function App() {
 
 /** ログインしていなければログイン画面を表示 */
 function Gate() {
-  const { session, loading } = useAuth()
+  const { session, loading, recovery, finishRecovery } = useAuth()
   const location = useLocation()
 
   if (loading) return <Splash />
+  // パスワード再設定メールのリンクから来たときは、まず新しいパスワードを設定してもらう
+  if (session && recovery) return <ResetPasswordPage onDone={finishRecovery} />
   if (!session) {
     // 招待リンクから来た場合は、ログイン後に戻れるよう URL を覚えておく
     if (location.pathname.startsWith('/join/')) sessionStorage.setItem('afterLogin', location.pathname)

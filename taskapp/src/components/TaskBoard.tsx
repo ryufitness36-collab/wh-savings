@@ -19,6 +19,7 @@ import {
 } from '../lib/tasks'
 import { TaskList } from './TaskList'
 import { KanbanBoard } from './KanbanBoard'
+import { SavedViews, type ViewConfig } from './SavedViews'
 
 type ViewMode = 'list' | 'kanban'
 
@@ -43,7 +44,8 @@ function useStored<T extends string>(key: string, initial: T) {
 }
 
 interface Props {
-  storageKey: string
+  /** 'personal' / 'team'。表示設定の保存先や「保存した条件」の区別に使う */
+  storageKey: 'personal' | 'team'
   tasks: Task[]
   showScope?: boolean
   showAssignee?: boolean
@@ -69,10 +71,20 @@ export function TaskBoard({ storageKey, tasks, showScope, showAssignee, newTaskD
     return sortTasks(list, sort)
   }, [tasks, period, filter, sort, hideDone, view])
 
+  const current: ViewConfig = { period, sort, view, filter }
+  const applyView = (c: ViewConfig) => {
+    setPeriod(c.period)
+    setSort(c.sort)
+    setView(c.view)
+    setFilter(c.filter)
+  }
+
   const activeFilterCount = [filter.priority, filter.status, filter.assigneeId, filter.projectId, filter.categoryId, filter.due, filter.createdBy].filter(Boolean).length
 
   return (
     <div>
+      <SavedViews page={storageKey} current={current} onApply={applyView} />
+
       {/* 期間タブ */}
       <div className="thin-scroll -mx-4 mb-3 flex gap-1 overflow-x-auto px-4 md:mx-0 md:px-0">
         {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => {
