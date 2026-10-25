@@ -236,6 +236,15 @@ export const TEACHER_STYLE_INFO: Record<TeacherStyle, { label: string; descripti
   },
 };
 
+/** 話す順番の決め方 */
+export const TURN_MODES = ["auto", "patient", "push_to_talk"] as const;
+export type TurnMode = (typeof TURN_MODES)[number];
+export const TURN_MODE_INFO: Record<TurnMode, { label: string; description: string }> = {
+  auto: { label: "自動（標準）", description: "話し終わると自動でAIが返事します。黙っているとAIから話しかけます" },
+  patient: { label: "自動（考える時間長め）", description: "文の途中で考え込んでも待ってくれます。返事は少し遅くなります" },
+  push_to_talk: { label: "押して話す", description: "ボタン（PCはスペースキー）を押している間だけ話します。周りがうるさい場所向け" },
+};
+
 export const CORRECTION_MODES = ["inline", "after"] as const;
 export type CorrectionMode = (typeof CORRECTION_MODES)[number];
 
@@ -253,6 +262,7 @@ export const lessonSettingsSchema = z.object({
   teacherNote: z.string().max(300).default(""),
   correctionMode: z.enum(CORRECTION_MODES),
   japaneseSupport: z.boolean(),
+  turnMode: z.enum(TURN_MODES).default("auto"),
 });
 export type LessonSettings = z.infer<typeof lessonSettingsSchema>;
 
@@ -269,6 +279,7 @@ export const DEFAULT_LESSON_SETTINGS: LessonSettings = {
   teacherNote: "",
   correctionMode: "after",
   japaneseSupport: true,
+  turnMode: "auto",
 };
 
 export function getScenario(mode: ConversationMode, scenarioId: string): Scenario {

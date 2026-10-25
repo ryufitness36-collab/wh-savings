@@ -173,3 +173,24 @@ export const aiPlanSchema = z.object({
     .describe("2〜5個。合計時間は指定された学習時間以内"),
 });
 export type AiPlan = z.infer<typeof aiPlanSchema>;
+
+// ---------- 会話中の返答ヒント ----------
+
+export const replyHintSchema = z.object({
+  question_ja: z.string().describe("AI講師が最後に聞いたことの日本語訳（短く）"),
+  suggestions: z
+    .array(z.object({ en: z.string().describe("学習者が言える返答例（英語）"), ja: z.string().describe("日本語訳") }))
+    .describe("学習者のレベルに合った返答例ちょうど3つ（短い答え・少し詳しい答え・質問を返す答え）"),
+  tip_ja: z.string().describe("返答に役立つ表現や文法のワンポイント（日本語1文）"),
+});
+export type ReplyHint = z.infer<typeof replyHintSchema>;
+
+// ---------- 学習傾向の分析 ----------
+
+export const insightsSchema = z.object({
+  summary_ja: z.string().describe("学習全体の傾向の要約（日本語、2〜3文、数字を根拠に）"),
+  strengths_ja: z.array(z.string()).describe("伸びている点・よくできている点（1〜3個）"),
+  challenges_ja: z.array(z.string()).describe("課題（1〜3個、具体的に）"),
+  recommendations_ja: z.array(z.string()).describe("来週に向けた具体的な行動提案（2〜3個。アプリの機能名を使ってよい）"),
+});
+export type Insights = z.infer<typeof insightsSchema>;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Captions, CaptionsOff, Hand, Keyboard, Loader2, Mic, MicOff, PhoneOff, RefreshCw, Send, X } from "lucide-react";
+import { Captions, CaptionsOff, Hand, Keyboard, Lightbulb, Loader2, Mic, MicOff, PhoneOff, RefreshCw, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { cn, formatClock } from "@/lib/utils";
 import type { useRealtimeConversation } from "@/hooks/use-realtime-conversation";
 import { TutorAvatar } from "./tutor-avatar";
 import { MicHelp } from "./mic-help";
+import { HintPanel } from "./hint-panel";
+import { apiFetch, errorMessage } from "@/lib/client/api";
+import type { ReplyHint } from "@/lib/ai/schemas";
 
 type Session = ReturnType<typeof useRealtimeConversation>;
 
@@ -26,6 +29,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function LiveSession({
   session,
+  conversationId,
+  pushToTalk,
   title,
   teacherName,
   timeLimitSec,
@@ -33,13 +38,61 @@ export function LiveSession({
   onRetry,
 }: {
   session: Session;
+  conversationId: string;
+  pushToTalk: boolean;
   title: string;
   teacherName: string;
   timeLimitSec: number | null;
   onEnd: () => void;
   onRetry: () => void;
 }) {
-  const { status, aiState, entries, error, notice, micEnabled, elapsedSec, wrappingUp } = session;
+  const { status, aiState, entries, error, notice, micEnabled, elapsedSec, wrappingUp, talking, micLevel, startTalking, stopTalking, toggleMic } = session;
+  const [hintOpen, setHintOpen] = useState(false);
+  const [hint, setHint] = useState<ReplyHint | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
+
+  const requestHint = async () => {
+    setHintOpen(true);
+    setHintLoading(true);
+    setHintError(null);
+    try {
+      const transcript = entries.filter((e) => e.text.trim() !== "").map(({ id, role, text, at }) => ({ id, role, text, at }));
+      const res = await apiFetch<{ hint: ReplyHint }>(`/api/conversations/${conversationId}/hint`, { method: "POST", json: { transcript } });
+      setHint(res.hint);
+    } catch (e) {
+      setHintError(errorMessage(e));
+    } finally {
+      setHintLoading(false);
+    }
+  };
+
+  // キーボード操作：押して話すモードはスペースキー長押し、自動モードは M でマイク切り替え
+  useEffect(() => {
+    if (status !== "connected") return;
+    const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    const down = (e: KeyboardEvent) => {
+      if (isTyping(e.target) || e.repeat) return;
+      if (pushToTalk && e.code === "Space") {
+        e.preventDefault();
+        startTalking();
+      } else if (!pushToTalk && e.key.toLowerCase() === "m") {
+        toggleMic();
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (pushToTalk && e.code === "Space" && !isTyping(e.target)) {
+        e.preventDefault();
+        stopTalking();
+      }
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, [status, pushToTalk, startTalking, stopTalking, toggleMic]);
   const [subtitles, setSubtitles] = useState(true);
   const [textMode, setTextMode] = useState(false);
   const [text, setText] = useState("");
@@ -62,6 +115,10 @@ export function LiveSession({
     ? STATUS_LABEL[status]
     : wrappingUp
       ? "時間になりました。まとめに入ります…"
+      : pushToTalk && talking
+        ? "話してください（離すと送信）"
+        : pushToTalk && aiState === "listening"
+          ? "ボタンを押している間に話してください"
       : !micEnabled
         ? "マイクがOFFです"
         : aiState === "speaking"
@@ -111,6 +168,17 @@ export function LiveSession({
           {busy && <Loader2 className="mr-1.5 inline size-4 animate-spin" />}
           {stateText}
         </p>
+        {connected && (
+          <div className="flex h-3 items-end gap-0.5" aria-hidden title="マイクの入力レベル">
+            {[0.08, 0.2, 0.35, 0.5, 0.7].map((th, i) => (
+              <span
+                key={th}
+                className={cn("w-1 rounded-full transition-colors", micLevel > th ? "bg-success" : "bg-border")}
+                style={{ height: `${4 + i * 2}px` }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (status === "error" || status === "disconnected") && (
@@ -165,6 +233,8 @@ export function LiveSession({
         )}
       </div>
 
+      {hintOpen && <HintPanel hint={hint} loading={hintLoading} error={hintError} onClose={() => setHintOpen(false)} />}
+
       {textMode && connected && (
         <form
           className="flex gap-2"
@@ -217,6 +287,17 @@ export function LiveSession({
             <Button
               variant="outline"
               size="icon-lg"
+              onClick={() => void requestHint()}
+              disabled={!connected || hintLoading || !entries.some((e) => e.role === "assistant" && e.text.trim() !== "")}
+              aria-label="返答のヒント"
+              title="何と答えればいいか分からないとき"
+            >
+              <Lightbulb className="size-5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="hidden sm:inline-flex"
               onClick={session.interrupt}
               disabled={!connected || aiState !== "speaking"}
               aria-label="AIの発話を止める"
@@ -224,22 +305,47 @@ export function LiveSession({
             >
               <Hand className="size-5" />
             </Button>
-            <button
-              type="button"
-              onClick={session.toggleMic}
-              disabled={!connected}
-              aria-pressed={micEnabled}
-              aria-label={micEnabled ? "マイクをOFFにする" : "マイクをONにする"}
-              className={cn(
-                "relative flex size-20 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 disabled:opacity-50",
-                micEnabled ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
-              )}
-            >
-              {micEnabled && connected && aiState === "user_speaking" && (
-                <span className="absolute inset-0 animate-pulse-ring rounded-full bg-primary/40" />
-              )}
-              {micEnabled ? <Mic className="size-8" /> : <MicOff className="size-8" />}
-            </button>
+            {pushToTalk ? (
+              <button
+                type="button"
+                disabled={!connected}
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  startTalking();
+                }}
+                onPointerUp={stopTalking}
+                onPointerCancel={stopTalking}
+                onContextMenu={(e) => e.preventDefault()}
+                aria-pressed={talking}
+                aria-label="押している間だけ話す"
+                className={cn(
+                  "relative flex size-20 touch-none select-none flex-col items-center justify-center rounded-full text-[10px] font-semibold shadow-lg transition-all disabled:opacity-50",
+                  talking ? "scale-110 bg-success text-white" : "bg-primary text-primary-foreground",
+                )}
+              >
+                {talking && <span className="absolute inset-0 animate-pulse-ring rounded-full bg-success/40" />}
+                <Mic className="size-7" />
+                {talking ? "話し中" : "押して話す"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleMic}
+                disabled={!connected}
+                aria-pressed={micEnabled}
+                aria-label={micEnabled ? "マイクをOFFにする" : "マイクをONにする"}
+                title="マイクのON/OFF（キーボードの M）"
+                className={cn(
+                  "relative flex size-20 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 disabled:opacity-50",
+                  micEnabled ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
+                )}
+              >
+                {micEnabled && connected && aiState === "user_speaking" && (
+                  <span className="absolute inset-0 animate-pulse-ring rounded-full bg-primary/40" />
+                )}
+                {micEnabled ? <Mic className="size-8" /> : <MicOff className="size-8" />}
+              </button>
+            )}
             <Button
               variant="destructive"
               size="icon-lg"

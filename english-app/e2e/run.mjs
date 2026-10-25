@@ -54,7 +54,7 @@ try {
     APP_PASSWORD: "",
   });
   await waitFor(`http://localhost:${PORT}/api/status`);
-  for (const file of ["realtime.e2e.cjs", "pages.e2e.cjs", "phase2.e2e.cjs"]) {
+  for (const file of ["realtime.e2e.cjs", "pages.e2e.cjs", "phase2.e2e.cjs", "phase3.e2e.cjs"]) {
     console.log(`\n▶ ${file}`);
     const code = await run(file);
     console.log(code === 0 ? `✔ ${file}` : `✘ ${file}`);

@@ -23,6 +23,21 @@ const fixtures = {
       { kind: "writing", title_ja: "英作文", detail_ja: "3文", reason_ja: "書く練習が1週間空いています。", minutes: 10, grammar_category: "none", grammar_weak_drill: false, question_count: 0, conversation_mode: "none", scenario_id: null, writing_topic_ja: "好きなカフェについて3文で書く" },
     ],
   },
+  reply_hint: {
+    question_ja: "温かいのと冷たいの、どちらにしますか？",
+    suggestions: [
+      { en: "Hot, please.", ja: "温かいのでお願いします。" },
+      { en: "I'd like it iced, because it's hot today.", ja: "今日は暑いのでアイスでお願いします。" },
+      { en: "Hot, please. Which one do you recommend?", ja: "ホットで。どれがおすすめですか？" },
+    ],
+    tip_ja: "I'd like 〜 は丁寧に注文するときの定番表現です。",
+  },
+  learning_insights: {
+    summary_ja: "直近は英会話の時間が増え、1回あたりの発話語数も伸びています。",
+    strengths_ja: ["英会話の継続力が上がっています"],
+    challenges_ja: ["冠詞の間違いが続いています"],
+    recommendations_ja: ["苦手克服ドリルで冠詞を5問", "押して話すモードで発話を長めに"],
+  },
   translation: { translation: "This coffee has low acidity and tastes like chocolate.", alternatives: [{ text: "This coffee isn't very acidic and has chocolatey notes.", nuance_ja: "カジュアル" }], grammar_points: [{ point: "taste like ~", explanation_ja: "〜のような味がする" }], notes_ja: null },
 };
 http.createServer((req, res) => {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AppShell } from "@/components/layout/app-shell";
+import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ThemeProvider>
           <AppShell>{children}</AppShell>
           <Toaster />
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>

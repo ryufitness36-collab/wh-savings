@@ -224,3 +224,35 @@ describe("weekStart", () => {
     expect(weekStart("2026-10-21")).toBe("2026-10-19"); // 水曜
   });
 });
+
+import { bestTimeSlot, change, computeTrendFacts } from "./trends";
+import { hourOf } from "./dates";
+
+describe("trends", () => {
+  it("finds the best 3-hour slot, wrapping around midnight", () => {
+    const hourly = new Array(24).fill(0);
+    hourly[23] = 100;
+    hourly[0] = 100;
+    hourly[12] = 150;
+    expect(bestTimeSlot(hourly)).toBe(22);
+    expect(bestTimeSlot(new Array(24).fill(0))).toBeNull();
+  });
+
+  it("compares early and recent averages", () => {
+    expect(change([4, 5, 6, 7, 8, 9])).toEqual({ from: 5, to: 8 });
+    expect(change([4, 6])).toEqual({ from: 4, to: 6 });
+    expect(change([5])).toBeNull();
+  });
+
+  it("computes facts", () => {
+    const f = computeTrendFacts({ hourly: new Array(24).fill(0), dailySeconds: [0, 600, 1200], overallScores: [], wordsPerTurn: [3, 5] });
+    expect(f.avgMinutesPerStudyDay).toBe(15);
+    expect(f.scoreChange).toBeNull();
+    expect(f.wordsPerTurnChange).toEqual({ from: 3, to: 5 });
+  });
+
+  it("gets the hour in a time zone", () => {
+    expect(hourOf(Date.UTC(2024, 0, 1, 20, 30), "Asia/Tokyo")).toBe(5);
+    expect(hourOf(Date.UTC(2024, 0, 1, 0, 0), "UTC")).toBe(0);
+  });
+});

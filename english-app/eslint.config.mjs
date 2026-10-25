@@ -5,9 +5,9 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // E2E テストは Node.js の CommonJS スクリプトとして実行する
+  // E2E テストと補助スクリプトは Node.js の CommonJS として実行する
   {
-    files: ["e2e/**/*.cjs"],
+    files: ["e2e/**/*.cjs", "scripts/**/*.cjs"],
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   // Override default ignores of eslint-config-next.

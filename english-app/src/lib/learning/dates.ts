@@ -44,3 +44,9 @@ export function weekStart(key: string): string {
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=日曜
   return addDays(key, -((weekday + 6) % 7));
 }
+
+/** 指定タイムゾーンでの「時」（0〜23） */
+export function hourOf(timestamp: number, timeZone: string): number {
+  const h = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).format(new Date(timestamp));
+  return Number(h) % 24;
+}

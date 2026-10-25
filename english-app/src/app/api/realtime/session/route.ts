@@ -4,7 +4,8 @@ import { getOpenAI, toAppError } from "@/lib/ai/client";
 import { handleRouteError, parseJson } from "@/lib/api";
 import { env } from "@/lib/env";
 import { buildTutorInstructions } from "@/lib/learning/instructions";
-import { SPEED_INFO, getTeacher, type Level } from "@/lib/learning/lesson";
+import { SPEED_INFO, getTeacher } from "@/lib/learning/lesson";
+import { buildTurnDetection } from "@/lib/learning/turn";
 import { getPracticeTargets, requireConversation } from "@/lib/server/conversations";
 
 const bodySchema = z.object({
@@ -12,14 +13,6 @@ const bodySchema = z.object({
   /** スマホなど口元に近いマイクなら near_field、PCの内蔵マイクなら far_field */
   micType: z.enum(["near_field", "far_field"]).default("far_field"),
 });
-
-/** 初級ほど考える時間が必要なので、発話終了とみなすまでの無音時間を長くする */
-const SILENCE_MS: Record<Level, number> = {
-  beginner: 1100,
-  elementary: 900,
-  intermediate: 700,
-  advanced: 600,
-};
 
 /**
  * ブラウザが OpenAI Realtime API に WebRTC で直接接続するための「一時キー」を発行する。
@@ -48,17 +41,8 @@ export async function POST(req: Request) {
                 model: env.transcribeModel,
                 prompt: "English conversation practice by a Japanese learner. The learner sometimes speaks Japanese.",
               },
-              turn_detection: {
-                type: "server_vad",
-                threshold: 0.5,
-                prefix_padding_ms: 300,
-                silence_duration_ms: SILENCE_MS[s.level],
-                // 会話が止まったら AI から話しかける（AIの音声再生終了から数える）
-                idle_timeout_ms: 12_000,
-                create_response: true,
-                // ユーザーが話し始めたら AI の発話を止める（割り込み）
-                interrupt_response: true,
-              },
+              // 発話の区切り検出・割り込み・沈黙時の声かけ（押して話すモードでは無効）
+              turn_detection: buildTurnDetection(s.turnMode, s.level),
             },
             output: {
               voice: getTeacher(s.teacherId).voice,

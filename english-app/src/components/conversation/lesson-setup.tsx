@@ -19,6 +19,8 @@ import {
   SPEEDS,
   SPEED_INFO,
   TEACHERS,
+  TURN_MODES,
+  TURN_MODE_INFO,
   TEACHER_STYLES,
   TEACHER_STYLE_INFO,
   type LessonSettings,
@@ -226,6 +228,16 @@ export function LessonSetup({
               ]}
             />
           </Field>
+          <div className="space-y-2 md:col-span-2">
+            <p className="text-sm font-medium">話す順番</p>
+            <Segmented
+              ariaLabel="話す順番"
+              value={settings.turnMode}
+              onChange={(v) => set("turnMode", v)}
+              options={TURN_MODES.map((t) => ({ value: t, label: TURN_MODE_INFO[t].label }))}
+            />
+            <p className="text-xs text-muted-foreground">{TURN_MODE_INFO[settings.turnMode].description}</p>
+          </div>
           <div className="flex items-center justify-between gap-4 rounded-xl bg-secondary/60 p-3.5 md:col-span-2">
             <div>
               <Label htmlFor="ja-support">日本語サポート</Label>

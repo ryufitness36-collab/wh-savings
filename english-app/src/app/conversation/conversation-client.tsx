@@ -67,6 +67,7 @@ export function ConversationClient() {
   const session = useRealtimeConversation({
     conversationId: conversation?.id ?? null,
     timeLimitSec,
+    pushToTalk: conversation?.settings.turnMode === "push_to_talk",
     onAutoEnd: () => endRef.current(),
   });
 
@@ -120,6 +121,8 @@ export function ConversationClient() {
     return (
       <LiveSession
         session={session}
+        conversationId={conversation.id}
+        pushToTalk={conversation.settings.turnMode === "push_to_talk"}
         title={conversation.title}
         teacherName={getTeacher(conversation.settings.teacherId).name}
         timeLimitSec={timeLimitSec}

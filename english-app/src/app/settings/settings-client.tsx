@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAppStatus } from "@/hooks/use-status";
 import { useFetch } from "@/hooks/use-fetch";
+import { InstallCard } from "@/components/install-card";
 import { apiFetch, errorMessage } from "@/lib/client/api";
 
 interface Privacy {
@@ -123,6 +124,8 @@ export function SettingsClient() {
           </div>
         </CardContent>
       </Card>
+
+      <InstallCard />
 
       {status?.passwordProtected && (
         <Button variant="outline" onClick={logout}>

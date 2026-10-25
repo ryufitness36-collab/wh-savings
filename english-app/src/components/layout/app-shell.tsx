@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { NAV_ITEMS, isActive } from "./nav-items";
 import { ThemeToggle } from "./theme-toggle";
 import { ApiKeyNotice } from "./api-key-notice";
+import { OfflineBanner } from "./offline-banner";
 
 function Logo() {
   return (
@@ -78,8 +79,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto w-full max-w-5xl px-4 pt-5 pb-28 md:px-8 md:pt-8 md:pb-12">
+        <OfflineBanner />
         <ApiKeyNotice />
-        {children}
+        {/* 画面切り替え時のやわらかいフェードイン */}
+        <div key={pathname} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+          {children}
+        </div>
       </main>
 
       {/* スマホ: 下部タブバー */}

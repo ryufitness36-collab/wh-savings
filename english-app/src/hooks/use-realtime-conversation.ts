@@ -45,6 +45,8 @@ export interface LiveEntry extends TranscriptEntry {
 interface Options {
   conversationId: string | null;
   timeLimitSec: number | null;
+  /** 押して話すモード（自動の発話検出を使わず、ボタンを押している間だけ音声を送る） */
+  pushToTalk?: boolean;
   onAutoEnd?: () => void;
 }
 
@@ -60,7 +62,7 @@ function prepareAudioElement(existing: HTMLAudioElement | null): HTMLAudioElemen
   return audio;
 }
 
-export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEnd }: Options) {
+export function useRealtimeConversation({ conversationId, timeLimitSec, pushToTalk = false, onAutoEnd }: Options) {
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [aiState, setAiState] = useState<AiState>("listening");
   const [entries, setEntries] = useState<LiveEntry[]>([]);
@@ -69,6 +71,8 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
   const [micEnabled, setMicEnabled] = useState(true);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [wrappingUp, setWrappingUp] = useState(false);
+  const [talking, setTalking] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
@@ -77,6 +81,7 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
 
   const entriesRef = useRef<LiveEntry[]>([]);
   const micEnabledRef = useRef(true);
+  const talkingRef = useRef(false);
   const statusRef = useRef<ConnectionStatus>("idle");
   const elapsedRef = useRef(0);
   const responseActiveRef = useRef(false);
@@ -329,7 +334,12 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
           const err = ev.error as { message?: string; code?: string } | undefined;
           const code = err?.code ?? "";
           // 割り込み時のキャンセル競合など、無視してよいエラー
-          if (code === "response_cancel_not_active" || code === "conversation_already_has_active_response") break;
+          if (
+            code === "response_cancel_not_active" ||
+            code === "conversation_already_has_active_response" ||
+            code === "input_audio_buffer_commit_empty"
+          )
+            break;
           console.warn("[realtime] error event", err);
           setNotice(err?.message ? `エラー：${err.message}` : "AIとの通信でエラーが発生しました。");
           break;
@@ -405,7 +415,8 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
 
       try {
         const stream = await getMicrophone();
-        stream.getAudioTracks().forEach((t) => (t.enabled = micEnabledRef.current));
+        // 押して話すモードでは、ボタンを押すまでマイク音声を送らない
+        stream.getAudioTracks().forEach((t) => (t.enabled = pushToTalk ? false : micEnabledRef.current));
         updateStatus(isReconnect ? "reconnecting" : "connecting");
 
         const micType = /iPhone|iPad|Android/i.test(navigator.userAgent) ? "near_field" : "far_field";
@@ -501,7 +512,7 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
         updateStatus(isReconnect ? "disconnected" : "error");
       }
     },
-    [conversationId, getMicrophone, handleServerEvent, restoreHistory, send, teardown, updateStatus],
+    [conversationId, pushToTalk, getMicrophone, handleServerEvent, restoreHistory, send, teardown, updateStatus],
   );
 
   // 接続が切れたときの処理（connectInternal の中から ref 経由で呼ぶ）
@@ -545,6 +556,45 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
     setMicEnabled(next);
     streamRef.current?.getAudioTracks().forEach((t) => (t.enabled = next));
   }, []);
+
+  /** 押して話す：ボタンを押した */
+  const startTalking = useCallback(() => {
+    if (!pushToTalk || talkingRef.current || statusRef.current !== "connected") return;
+    // AIが話していたら止めてから話す
+    if (responseActiveRef.current) send({ type: "response.cancel" });
+    if (aiSpeakingSinceRef.current !== null) send({ type: "output_audio_buffer.clear" });
+    send({ type: "input_audio_buffer.clear" });
+    streamRef.current?.getAudioTracks().forEach((t) => (t.enabled = true));
+    talkingRef.current = true;
+    userSpeakingSinceRef.current = Date.now();
+    setTalking(true);
+    setAiState("user_speaking");
+  }, [pushToTalk, send]);
+
+  /** 押して話す：ボタンを離した。最後の音声が届くよう少し待ってから確定し、返事を依頼する */
+  const stopTalking = useCallback(() => {
+    if (!talkingRef.current) return;
+    talkingRef.current = false;
+    setTalking(false);
+    const since = userSpeakingSinceRef.current ?? Date.now();
+    const heldMs = Date.now() - since;
+    window.setTimeout(() => {
+      streamRef.current?.getAudioTracks().forEach((t) => (t.enabled = false));
+      if (userSpeakingSinceRef.current !== null) {
+        userSpeakingSecRef.current += (Date.now() - userSpeakingSinceRef.current) / 1000;
+        userSpeakingSinceRef.current = null;
+      }
+      if (heldMs < 400) {
+        send({ type: "input_audio_buffer.clear" });
+        setAiState("listening");
+        setNotice("ボタンを押したまま話し、話し終わったら離してください。");
+        return;
+      }
+      send({ type: "input_audio_buffer.commit" });
+      send({ type: "response.create" });
+      setAiState("thinking");
+    }, 300);
+  }, [send]);
 
   /** AIの発話を止める（ボタンでの割り込み） */
   const interrupt = useCallback(() => {
@@ -614,6 +664,38 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
     return () => window.clearInterval(timer);
   }, [status, timeLimitSec, autosave, trySendWrapUp]);
 
+  // マイクの入力レベル（声が届いているかを画面に表示する）
+  useEffect(() => {
+    if (status !== "connected" || !streamRef.current) return;
+    const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const source = ctx.createMediaStreamSource(streamRef.current);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    let raf = 0;
+    let last = 0;
+    const tick = (t: number) => {
+      raf = requestAnimationFrame(tick);
+      if (t - last < 80) return;
+      last = t;
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += v * v;
+      const rms = Math.sqrt(sum / buf.length);
+      setMicLevel(Math.min(1, rms * 6));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      source.disconnect();
+      void ctx.close();
+      setMicLevel(0);
+    };
+  }, [status]);
+
   // 画面を離れるときは接続とマイクを確実に止める
   useEffect(() => {
     return () => teardown(false);
@@ -632,6 +714,10 @@ export function useRealtimeConversation({ conversationId, timeLimitSec, onAutoEn
     reconnect,
     end,
     toggleMic,
+    talking,
+    micLevel,
+    startTalking,
+    stopTalking,
     interrupt,
     sendText,
     dismissNotice: () => setNotice(null),

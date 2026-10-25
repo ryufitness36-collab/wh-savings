@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>オフライン | Hello Coach</title>
+    <style>
+      :root { color-scheme: light dark; --bg: #fbfcfd; --fg: #1c2230; --muted: #667085; --accent: #0d7a7f; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #16181d; --fg: #eef0f3; --muted: #a0a7b4; --accent: #5cc4c7; } }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+      main { max-width: 360px; padding: 24px; text-align: center; }
+      .icon { width: 56px; height: 56px; border-radius: 16px; background: var(--accent); margin: 0 auto 16px; }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      p { color: var(--muted); line-height: 1.7; font-size: 14px; margin: 0 0 20px; }
+      button { border: 0; border-radius: 999px; padding: 12px 24px; font-size: 15px; background: var(--accent); color: #fff; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="icon" aria-hidden="true"></div>
+      <h1>インターネットに接続されていません</h1>
+      <p>AI英会話・添削・学習記録の保存にはネットワーク接続が必要です。接続を確認してから、もう一度お試しください。</p>
+      <button type="button" onclick="location.reload()">再読み込み</button>
+    </main>
+  </body>
+</html>

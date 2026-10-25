@@ -2,7 +2,8 @@ import "server-only";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { getDb, LOCAL_USER_ID, schema } from "@/lib/db";
 import { env } from "@/lib/env";
-import { computeStreak, dateKey, lastNDays, weekStart } from "@/lib/learning/dates";
+import { computeStreak, dateKey, hourOf, lastNDays, weekStart } from "@/lib/learning/dates";
+import { computeTrendFacts, type TrendFacts } from "@/lib/learning/trends";
 import { CORRECT_THRESHOLD, grammarCategoryLabel, isGrammarCategory } from "@/lib/learning/grammar";
 import { rankWeakCategories } from "@/lib/learning/weakness";
 import { countReviewItems } from "./review";
@@ -59,6 +60,7 @@ export interface Stats {
   weeklyGoalMinutes: number;
   conversationTrend: ConversationTrendPoint[];
   categoryAccuracy: { category: string; label: string; attempts: number; accuracy: number }[];
+  trendFacts: TrendFacts;
   weakCategories: WeakCategory[];
   review: { total: number; due: number };
   recentConversations: {
@@ -272,6 +274,20 @@ export function getStats(userId = LOCAL_USER_ID): Stats {
     }))
     .sort((a, b) => a.accuracy - b.accuracy);
 
+  const recentLogs = db
+    .select({ createdAt: schema.activityLogs.createdAt, seconds: schema.activityLogs.seconds })
+    .from(schema.activityLogs)
+    .where(and(eq(schema.activityLogs.userId, userId), gte(schema.activityLogs.createdAt, Date.now() - 60 * 86_400_000)))
+    .all();
+  const hourly = new Array<number>(24).fill(0);
+  for (const r of recentLogs) hourly[hourOf(r.createdAt, env.timezone)] += r.seconds;
+  const trendFacts = computeTrendFacts({
+    hourly,
+    dailySeconds: daily.slice(-14).map((d) => d.conversation + d.grammar + d.writing + d.review),
+    overallScores: conversationTrend.map((p) => p.overall),
+    wordsPerTurn: conversationTrend.flatMap((p) => (p.avgWordsPerTurn !== null ? [p.avgWordsPerTurn] : [])),
+  });
+
   const lastGrammar = db
     .select({ category: schema.grammarAttempts.category })
     .from(schema.grammarAttempts)
@@ -301,6 +317,7 @@ export function getStats(userId = LOCAL_USER_ID): Stats {
     weeklyGoalMinutes: getGoals(userId).weeklyMinutes,
     conversationTrend,
     categoryAccuracy,
+    trendFacts,
     lastGrammarCategory: lastGrammar?.category ?? null,
     daysSinceLastConversation: recentConversations[0]
       ? Math.floor((Date.now() - recentConversations[0].startedAt) / 86_400_000)

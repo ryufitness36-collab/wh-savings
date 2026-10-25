@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityChart } from "@/components/stats/activity-chart";
 import { ScoreTrendChart } from "@/components/stats/score-trend-chart";
+import { InsightsCard } from "@/components/stats/insights-card";
 import { Progress } from "@/components/ui/progress";
 import { Segmented } from "@/components/ui/segmented";
 import { StatTile } from "@/components/stats/stat-tile";
@@ -140,6 +141,8 @@ export function ProgressClient() {
               )}
             </CardContent>
           </Card>
+
+          <InsightsCard facts={stats.trendFacts} />
 
           <div className="grid gap-5 md:grid-cols-2">
             <Card>

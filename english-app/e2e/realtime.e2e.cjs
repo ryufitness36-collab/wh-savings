@@ -4,6 +4,7 @@
  * 実際の WebRTC 接続・データチャンネルのイベント・字幕・再接続・終了→レポートまでを確認する。
  */
 const { chromium } = require("playwright");
+const { setupFakeRealtime } = require("./fake-realtime.cjs");
 const SHOTS = process.argv[2] ?? require("node:path").join(__dirname, "screenshots");
 require("node:fs").mkdirSync(SHOTS, { recursive: true });
 const BASE = process.env.E2E_BASE ?? "http://localhost:3100";
@@ -11,66 +12,10 @@ const BASE = process.env.E2E_BASE ?? "http://localhost:3100";
 (async () => {
   const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required"] });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, permissions: ["microphone"] });
-  const fake = await ctx.newPage();
-  await fake.goto(BASE + "/api/status");
-  // 偽の OpenAI Realtime ピア
-  await fake.evaluate(() => {
-    window.received = [];
-    window.createAnswer = async (offerSdp) => {
-      const pc = new RTCPeerConnection();
-      window.pc = pc;
-      const ac = new AudioContext();
-      const osc = ac.createOscillator();
-      const dest = ac.createMediaStreamDestination();
-      osc.connect(dest); osc.start();
-      dest.stream.getTracks().forEach((t) => pc.addTrack(t, dest.stream));
-      pc.ondatachannel = (e) => {
-        const dc = e.channel; window.dc = dc;
-        dc.onmessage = (m) => { const ev = JSON.parse(m.data); window.received.push(ev); if (ev.type === "response.create") window.respond(ev); };
-      };
-      await pc.setRemoteDescription({ type: "offer", sdp: offerSdp });
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await new Promise((r) => { if (pc.iceGatheringState === "complete") r(); else pc.onicegatheringstatechange = () => pc.iceGatheringState === "complete" && r(); setTimeout(r, 2000); });
-      return pc.localDescription.sdp;
-    };
-    let n = 0;
-    const send = (o) => window.dc.send(JSON.stringify(o));
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    window.respond = async (req) => {
-      n++;
-      const rid = "resp_" + n, iid = "item_ai_" + n;
-      const text = req.response?.instructions?.includes("lesson time is over") ? "Great job today! Goodbye!" : n === 1 ? "Hi there! Welcome to our cafe. What would you like to drink today?" : "Nice choice! Would you like it hot or iced?";
-      send({ type: "response.created", response: { id: rid } });
-      send({ type: "conversation.item.added", item: { id: iid, type: "message", role: "assistant", content: [] } });
-      send({ type: "output_audio_buffer.started", response_id: rid });
-      for (const w of text.split(" ")) { send({ type: "response.output_audio_transcript.delta", item_id: iid, delta: w + " " }); await sleep(60); }
-      send({ type: "response.output_audio_transcript.done", item_id: iid, transcript: text });
-      send({ type: "response.done", response: { id: rid, status: "completed" } });
-      await sleep(300);
-      send({ type: "output_audio_buffer.stopped", response_id: rid });
-    };
-    window.userSays = async (text, id) => {
-      send({ type: "input_audio_buffer.speech_started" });
-      await sleep(1200);
-      send({ type: "input_audio_buffer.speech_stopped" });
-      send({ type: "conversation.item.added", item: { id, type: "message", role: "user", content: [{ type: "input_audio" }] } });
-      send({ type: "conversation.item.input_audio_transcription.delta", item_id: id, delta: text.slice(0, 5) });
-      await sleep(200);
-      send({ type: "conversation.item.input_audio_transcription.completed", item_id: id, transcript: text });
-      await window.respond({});
-    };
-  });
-
   const page = await ctx.newPage();
   page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") console.log("[page]", m.type(), m.text().slice(0, 200)); });
   page.on("pageerror", (e) => console.log("[pageerror]", e.message));
-  await page.route("https://api.openai.com/v1/realtime/calls", async (route) => {
-    const req = route.request();
-    console.log("calls endpoint auth:", req.headers()["authorization"], "ct:", req.headers()["content-type"]);
-    const answer = await fake.evaluate((sdp) => window.createAnswer(sdp), req.postData());
-    await route.fulfill({ status: 201, contentType: "application/sdp", body: answer });
-  });
+  const fake = await setupFakeRealtime(ctx, page, BASE);
 
   await page.goto(BASE + "/conversation?mode=cafe");
   await page.screenshot({ path: `${SHOTS}/conv-setup.png`, fullPage: true });
