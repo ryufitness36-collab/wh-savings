@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { DataProvider, useData } from './contexts/DataContext'
@@ -6,14 +7,17 @@ import { TaskEditorProvider } from './components/TaskEditor'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { HomePage } from './pages/HomePage'
-import { PersonalPage } from './pages/PersonalPage'
-import { TeamPage } from './pages/TeamPage'
-import { CalendarPage } from './pages/CalendarPage'
-import { MonthlyPage } from './pages/MonthlyPage'
-import { ProjectsPage } from './pages/ProjectsPage'
-import { NotificationsPage } from './pages/NotificationsPage'
-import { SettingsPage } from './pages/SettingsPage'
-import { JoinPage } from './pages/JoinPage'
+
+// ホーム以外の画面は、開いたときに読み込む（最初の表示を速くするため）
+const PersonalPage = lazy(() => import('./pages/PersonalPage').then((m) => ({ default: m.PersonalPage })))
+const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m.TeamPage })))
+const CalendarPage = lazy(() => import('./pages/CalendarPage').then((m) => ({ default: m.CalendarPage })))
+const MonthlyPage = lazy(() => import('./pages/MonthlyPage').then((m) => ({ default: m.MonthlyPage })))
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage })))
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const JoinPage = lazy(() => import('./pages/JoinPage').then((m) => ({ default: m.JoinPage })))
 
 export default function App() {
   return (
@@ -66,6 +70,7 @@ function AppRoutes() {
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="monthly" element={<MonthlyPage />} />
         <Route path="projects" element={<ProjectsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="join/:token" element={<JoinPage />} />

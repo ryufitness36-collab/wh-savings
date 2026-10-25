@@ -49,6 +49,15 @@ export function TeamPage() {
               </select>
             </div>
             <div>
+              <label className="label">作成者</label>
+              <select className="input" value={f.createdBy} onChange={(e) => setF({ ...f, createdBy: e.target.value })}>
+                <option value="">全員</option>
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>{m.user_id === userId ? '自分' : m.display_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="label">プロジェクト</label>
               <select className="input" value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })}>
                 <option value="">すべて</option>

@@ -3,9 +3,9 @@
 // * ログイン中のユーザーが「見てよい」データだけが Supabase の RLS によって返されます
 // * リスト・カンバン・カレンダー・ホームはすべてここの tasks 配列を参照するため、
 //   どの画面で変更しても他の画面に同じ内容が反映されます
-// * 他のメンバーの変更は「再読み込み（reload）」で取り込みます。
-//   将来リアルタイム同期を入れる場合は、下の useEffect 内の TODO 部分に
-//   supabase.channel(...).on('postgres_changes', ...) を追加して reload() を呼ぶだけで済みます
+// * 他のメンバーの変更は Supabase Realtime で受け取り、自動で再読み込みします。
+//   Realtime は RLS を守って配信するので、見えないタスクの変更は届きません。
+//   （Realtime が使えない環境でも、再読み込みボタン・タブ復帰時に最新化されます）
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { errorMessage, supabase } from '../lib/supabase'
 import type {
@@ -83,6 +83,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   /** 期限情報を確認して通知一覧を更新（DB 側で重複しないよう管理） */
   const refreshNotifications = useCallback(async () => {
     const { error } = await supabase.rpc('refresh_notifications')
+    await supabase.rpc('cleanup_old_notifications')
     if (error) console.warn(error)
     await loadNotifications()
   }, [loadNotifications])
@@ -127,12 +128,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', onVisible)
     // アプリを開いたままでも期限通知が更新されるよう 5 分ごとに確認
     const timer = setInterval(() => refreshNotifications(), 5 * 60 * 1000)
-    // TODO(Phase 4): リアルタイム同期を追加する場合はここで購読する
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       clearInterval(timer)
     }
   }, [reload, refreshNotifications])
+
+  // リアルタイム同期: 他のメンバーがタスクを変更したら、少し待ってからまとめて取り直す
+  const realtimeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    if (!userId) return
+    const refetchTasks = () => {
+      clearTimeout(realtimeTimer.current)
+      realtimeTimer.current = setTimeout(async () => {
+        try {
+          setTasks(await fetchAll<Task>('tasks'))
+          await loadNotifications()
+        } catch {
+          /* 通信エラー時は次の更新で取り直す */
+        }
+      }, 500)
+    }
+    const channel = supabase
+      .channel('app-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, refetchTasks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () =>
+        loadNotifications(),
+      )
+      .subscribe()
+    return () => {
+      clearTimeout(realtimeTimer.current)
+      supabase.removeChannel(channel)
+    }
+  }, [userId, loadNotifications])
 
   // 連続して更新したときに通知の再計算をまとめる
   const notifyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)

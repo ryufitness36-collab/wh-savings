@@ -1,6 +1,6 @@
 // チーム・メンバー・招待・プロフィールなどの設定
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Copy, Link2, LogOut, Shield, Trash2 } from 'lucide-react'
+import { Copy, Download, Link2, LogOut, Shield, Trash2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -10,6 +10,7 @@ import { formatDateTimeJP } from '../lib/date'
 import { Avatar } from '../components/Badges'
 import type { Invite } from '../lib/types'
 import { joinWithToken } from './JoinPage'
+import { exportJson, exportTasksCsv } from '../lib/export'
 
 export function SettingsPage() {
   const { team } = useData()
@@ -19,6 +20,7 @@ export function SettingsPage() {
       <ProfileSection />
       <CategorySection />
       <AppearanceSection />
+      <ExportSection />
       <AccountSection />
     </div>
   )
@@ -370,6 +372,33 @@ function AppearanceSection() {
             {l}
           </button>
         ))}
+      </div>
+    </Card>
+  )
+}
+
+function ExportSection() {
+  const { tasks, members, projects, categories, team } = useData()
+  const personal = tasks.filter((t) => t.scope === 'personal').length
+  const teamCount = tasks.length - personal
+  return (
+    <Card
+      title="データのエクスポート"
+      desc={`あなたが閲覧できるタスク（個人 ${personal}件・チーム ${teamCount}件）を書き出します。他の人の個人タスクは含まれません。`}
+    >
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-secondary" onClick={() => exportTasksCsv(tasks, members, projects, categories)} disabled={tasks.length === 0}>
+          <Download size={15} />
+          CSV（Excel 用）
+        </button>
+        <button
+          className="btn-secondary"
+          onClick={() => exportJson({ team, members, projects, categories, tasks })}
+          disabled={tasks.length === 0}
+        >
+          <Download size={15} />
+          JSON（バックアップ用）
+        </button>
       </div>
     </Card>
   )

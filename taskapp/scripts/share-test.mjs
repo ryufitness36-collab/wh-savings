@@ -196,5 +196,32 @@ const { data: newToken } = await A.client.rpc('create_invite', { p_expires_hours
 const { error: blocked } = await C.client.rpc('accept_invite', { p_token: newToken })
 check('10 回失敗すると、正しいトークンでも一時的に参加できなくなる', Boolean(blocked) && blocked.message.includes('試行回数'), blocked?.message)
 
+console.log('\n■ コメント・更新履歴（Phase 3）')
+const { error: bComErr } = await B.client.from('task_comments').insert({ task_id: tTask.id, body: '下書きできました。確認お願いします' })
+check('メンバー B はチームタスクにコメントできる', !bComErr, bComErr?.message)
+const { data: aComments } = await A.client.from('task_comments').select('body').eq('task_id', tTask.id)
+check('A は B のコメントを読める', aComments?.length === 1)
+const { data: cComments } = await C.client.from('task_comments').select('id')
+check('チーム外の C はコメントを読めない', (cComments ?? []).length === 0)
+const { error: bPersonalCom } = await B.client.from('task_comments').insert({ task_id: aPersonal.id, body: 'のぞき見' })
+check('B は A の個人タスクにコメントできない', Boolean(bPersonalCom))
+const { error: fakeAuthor } = await C.client.from('task_comments').insert({ task_id: tTask.id, body: 'なりすまし', author_id: B.id })
+check('他人になりすましてコメントできない', Boolean(fakeAuthor))
+const { data: aNotes } = await A.client.from('notifications').select('kind, actor_id').eq('task_id', tTask.id)
+check('作成者 A に「コメント」と「ステータス変更」の通知が届く（実行者付き）',
+  aNotes?.some((n) => n.kind === 'commented' && n.actor_id === B.id) && aNotes?.some((n) => n.kind === 'status_changed' && n.actor_id === B.id),
+  JSON.stringify(aNotes))
+await B.client.from('task_comments').insert({ task_id: tTask.id, body: '追記です' })
+const { data: aNotes2 } = await A.client.from('notifications').select('id').eq('task_id', tTask.id).eq('kind', 'commented')
+check('コメントが増えても同じタスクのコメント通知は 1 件にまとまる', aNotes2?.length === 1)
+const { data: hist } = await A.client.from('task_history').select('action, actor_id, changes').eq('task_id', tTask.id).order('created_at')
+check('更新履歴に「作成」と B のステータス変更が記録される',
+  hist?.[0]?.action === 'created' && hist.some((h) => h.actor_id === B.id && h.changes.status?.to === 'in_progress'),
+  JSON.stringify(hist))
+const { error: fakeHist } = await B.client.from('task_history').insert({ task_id: tTask.id, action: 'created' })
+check('更新履歴はブラウザから書き込めない', Boolean(fakeHist))
+const { data: bHistPersonal } = await B.client.from('task_history').select('id').eq('task_id', aPersonal.id)
+check('B は A の個人タスクの履歴を読めない', (bHistPersonal ?? []).length === 0)
+
 console.log(`\n結果: ${passed} 件成功 / ${failed} 件失敗`)
 process.exit(failed ? 1 : 0)

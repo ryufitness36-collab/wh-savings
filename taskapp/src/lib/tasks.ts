@@ -144,6 +144,18 @@ export interface TaskFilter {
   assigneeId: string // '' = 全員, 'none' = 未割り当て
   projectId: string // '' = すべて, 'none' = プロジェクトなし
   categoryId: string
+  /** 期限の状態: '' = すべて */
+  due: '' | 'overdue' | 'today' | 'soon' | 'week' | 'none'
+  /** 作成者: '' = 全員 */
+  createdBy: string
+}
+
+export const DUE_FILTER_LABEL: Record<Exclude<TaskFilter['due'], ''>, string> = {
+  overdue: '期限超過',
+  today: '今日が期限',
+  soon: '3日以内',
+  week: '7日以内',
+  none: '期限なし',
 }
 
 export const emptyFilter: TaskFilter = {
@@ -153,12 +165,25 @@ export const emptyFilter: TaskFilter = {
   assigneeId: '',
   projectId: '',
   categoryId: '',
+  due: '',
+  createdBy: '',
 }
 
-export function applyFilter(tasks: Task[], f: TaskFilter): Task[] {
-  const q = f.query.trim().toLowerCase()
+export function applyFilter(tasks: Task[], f: TaskFilter, today = todayJST()): Task[] {
+  // スペース区切りで複数のキーワード（すべて含むものを表示）
+  const words = f.query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   return tasks.filter((t) => {
-    if (q && !t.title.toLowerCase().includes(q) && !t.description.toLowerCase().includes(q)) return false
+    const text = `${t.title}\n${t.description}`.toLowerCase()
+    if (words.some((w) => !text.includes(w))) return false
+    if (f.createdBy && t.created_by !== f.createdBy) return false
+    if (f.due) {
+      const st = dueState(t, today)
+      if (f.due === 'none' && t.due_date !== null) return false
+      if (f.due === 'overdue' && st !== 'overdue') return false
+      if (f.due === 'today' && st !== 'today') return false
+      if (f.due === 'soon' && st !== 'today' && st !== 'soon') return false
+      if (f.due === 'week' && (isDone(t) || !t.due_date || t.due_date < today || t.due_date > addDays(today, 7))) return false
+    }
     if (f.priority && t.priority !== f.priority) return false
     if (f.status && t.status !== f.status) return false
     if (f.assigneeId === 'none' ? t.assignee_id !== null : f.assigneeId && t.assignee_id !== f.assigneeId) return false

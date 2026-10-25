@@ -1,7 +1,8 @@
 // 画面の枠組み: PC = 左サイドバー + 上部ヘッダー / スマホ = 上部ヘッダー + 下部ナビゲーション
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  BarChart3,
   Bell,
   CalendarDays,
   CalendarRange,
@@ -32,6 +33,7 @@ const NAV = [
   { to: '/calendar', label: 'カレンダー', icon: CalendarDays },
   { to: '/monthly', label: 'マンスリー', icon: CalendarRange },
   { to: '/projects', label: 'プロジェクト', icon: FolderKanban },
+  { to: '/reports', label: 'レポート', icon: BarChart3 },
   { to: '/settings', label: 'チーム・設定', icon: Settings },
 ]
 
@@ -106,7 +108,9 @@ export function Layout() {
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-5 pb-28 md:px-8 md:pb-10">
-          <Outlet />
+          <Suspense fallback={<div className="py-20 text-center text-sm text-gray-400">読み込み中…</div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

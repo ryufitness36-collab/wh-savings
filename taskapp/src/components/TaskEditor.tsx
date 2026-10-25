@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Modal } from './Modal'
+import { TaskActivity } from './TaskActivity'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import type { Priority, Recurrence, Scope, Status, Task, TaskInput } from '../lib/types'
@@ -66,7 +67,9 @@ function toForm(t: Task | null, d: TaskInput | undefined, hasTeam: boolean): For
 
 function TaskEditor({ task, defaults, onClose }: EditorState & { onClose: () => void }) {
   const { userId } = useAuth()
-  const { team, role, members, projects, categories, createTask, updateTask, deleteTask, createCategory } = useData()
+  const { team, role, members, projects, categories, tasks, createTask, updateTask, deleteTask, createCategory } = useData()
+  // 開いている間に他の画面や他のメンバーが更新した場合も、最新の内容で履歴を表示する
+  const latest = task ? (tasks.find((t) => t.id === task.id) ?? task) : null
   const [form, setForm] = useState<FormState>(() => toForm(task, defaults, Boolean(team)))
   const [saving, setSaving] = useState(false)
   const [newCategory, setNewCategory] = useState('')
@@ -337,6 +340,7 @@ function TaskEditor({ task, defaults, onClose }: EditorState & { onClose: () => 
         </div>
         <button type="submit" hidden />
       </form>
+      {latest && <TaskActivity task={latest} />}
     </Modal>
   )
 }

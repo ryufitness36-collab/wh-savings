@@ -112,7 +112,7 @@ export interface Category {
   color: string
 }
 
-export type NotificationKind = 'assigned' | 'due_soon' | 'due_today' | 'overdue'
+export type NotificationKind = 'assigned' | 'due_soon' | 'due_today' | 'overdue' | 'commented' | 'status_changed'
 
 export interface AppNotification {
   id: string
@@ -120,6 +120,25 @@ export interface AppNotification {
   task_id: string
   kind: NotificationKind
   is_read: boolean
+  created_at: string
+  actor_id: string | null
+  detail: string
+}
+
+export interface TaskComment {
+  id: string
+  task_id: string
+  author_id: string
+  body: string
+  created_at: string
+}
+
+export interface TaskHistory {
+  id: number
+  task_id: string
+  actor_id: string | null
+  action: 'created' | 'updated'
+  changes: Record<string, { from: unknown; to: unknown }>
   created_at: string
 }
 

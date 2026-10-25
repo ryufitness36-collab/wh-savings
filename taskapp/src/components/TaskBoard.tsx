@@ -4,6 +4,7 @@ import { Columns3, List, Search, SlidersHorizontal } from 'lucide-react'
 import type { Priority, Status, Task, TaskInput } from '../lib/types'
 import {
   PERIOD_LABEL,
+  DUE_FILTER_LABEL,
   PRIORITY_LABEL,
   SORT_LABEL,
   STATUSES,
@@ -68,7 +69,7 @@ export function TaskBoard({ storageKey, tasks, showScope, showAssignee, newTaskD
     return sortTasks(list, sort)
   }, [tasks, period, filter, sort, hideDone, view])
 
-  const activeFilterCount = [filter.priority, filter.status, filter.assigneeId, filter.projectId, filter.categoryId].filter(Boolean).length
+  const activeFilterCount = [filter.priority, filter.status, filter.assigneeId, filter.projectId, filter.categoryId, filter.due, filter.createdBy].filter(Boolean).length
 
   return (
     <div>
@@ -101,7 +102,7 @@ export function TaskBoard({ storageKey, tasks, showScope, showAssignee, newTaskD
           <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
           <input
             className="input pl-9"
-            placeholder="タスクを検索"
+            placeholder="タスクを検索（スペースで複数語）"
             value={filter.query}
             onChange={(e) => setFilter({ ...filter, query: e.target.value })}
           />
@@ -144,6 +145,15 @@ export function TaskBoard({ storageKey, tasks, showScope, showAssignee, newTaskD
               <option value="">すべて</option>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">期限</label>
+            <select className="input" value={filter.due} onChange={(e) => setFilter({ ...filter, due: e.target.value as TaskFilter['due'] })}>
+              <option value="">すべて</option>
+              {(Object.keys(DUE_FILTER_LABEL) as (keyof typeof DUE_FILTER_LABEL)[]).map((k) => (
+                <option key={k} value={k}>{DUE_FILTER_LABEL[k]}</option>
               ))}
             </select>
           </div>

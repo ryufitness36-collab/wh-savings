@@ -1,22 +1,41 @@
 // 通知センター（アプリ内のみ）
-import { AlarmClock, AlertTriangle, CalendarClock, UserPlus } from 'lucide-react'
+import { AlarmClock, AlertTriangle, CalendarClock, MessageSquare, RefreshCcw, UserPlus } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { useTaskEditor } from '../components/TaskEditor'
 import { ScopeBadge, DueLabel } from '../components/Badges'
 import type { AppNotification, NotificationKind } from '../lib/types'
 import { formatDateTimeJP } from '../lib/date'
+import { STATUS_LABEL } from '../lib/tasks'
 
 const KIND: Record<NotificationKind, { label: string; icon: typeof AlarmClock; style: string }> = {
   overdue: { label: '期限を過ぎています', icon: AlertTriangle, style: 'text-red-500 bg-red-50 dark:bg-red-500/10' },
   due_today: { label: '今日が期限です', icon: AlarmClock, style: 'text-orange-500 bg-orange-50 dark:bg-orange-500/10' },
   due_soon: { label: '期限が3日以内です', icon: CalendarClock, style: 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' },
   assigned: { label: 'あなたに割り当てられました', icon: UserPlus, style: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' },
+  commented: { label: 'コメントがありました', icon: MessageSquare, style: 'text-sky-500 bg-sky-50 dark:bg-sky-500/10' },
+  status_changed: { label: 'ステータスが変更されました', icon: RefreshCcw, style: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' },
 }
 
-const ORDER: NotificationKind[] = ['overdue', 'due_today', 'due_soon', 'assigned']
+const ORDER: NotificationKind[] = ['overdue', 'due_today', 'due_soon', 'assigned', 'commented', 'status_changed']
+
+/** 「鈴木さんがコメント: 〇〇」のような説明文 */
+function describe(n: AppNotification, actor: string | null): string {
+  const who = actor ? `${actor}さん` : ''
+  switch (n.kind) {
+    case 'assigned':
+      return actor ? `${who}があなたを担当者にしました` : KIND.assigned.label
+    case 'commented':
+      return `${who}のコメント：${n.detail}`
+    case 'status_changed':
+      return `${who}が「${STATUS_LABEL[n.detail as keyof typeof STATUS_LABEL] ?? n.detail}」に変更しました`
+    default:
+      return KIND[n.kind].label
+  }
+}
 
 export function NotificationList({ limit, onNavigate }: { limit?: number; onNavigate?: () => void }) {
-  const { notifications, tasks, markRead } = useData()
+  const { notifications, tasks, members, markRead } = useData()
+  const actorName = (id: string | null) => (id ? (members.find((m) => m.user_id === id)?.display_name ?? null) : null)
   const openEditor = useTaskEditor()
 
   // 未読を上に、重要度（期限超過 → 今日 → 3日以内 → 割り当て）の順で並べる
@@ -54,8 +73,8 @@ export function NotificationList({ limit, onNavigate }: { limit?: number; onNavi
               </span>
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-sm ${n.is_read ? 'text-gray-500' : 'font-medium'}`}>{task!.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-gray-600 dark:text-gray-300">{describe(n, actorName(n.actor_id))}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  {k.label}
                   <ScopeBadge scope={task!.scope} />
                   <DueLabel task={task!} />
                 </span>
