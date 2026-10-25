@@ -1,4 +1,5 @@
-// カンバン表示（Trello 風）。カードをドラッグ＆ドロップしてステータスを変更できます
+// カンバン表示（Trello 風）
+// カードをドラッグ＆ドロップして、ステータスの変更（列の移動）と、列の中での並べ替えができます
 import { useRef, useState } from 'react'
 import {
   DndContext,
@@ -6,16 +7,20 @@ import {
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
+  pointerWithin,
+  rectIntersection,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { Plus } from 'lucide-react'
 import type { Status, Task, TaskInput } from '../lib/types'
-import { STATUSES, STATUS_LABEL, taskPermission } from '../lib/tasks'
+import { STATUSES, STATUS_LABEL, taskPermission, type SortKey } from '../lib/tasks'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -28,15 +33,36 @@ interface Props {
   showAssignee?: boolean
   /** 列の「＋」から追加するときの初期値 */
   newTaskDefaults?: TaskInput
+  /** 今の並べ替え。カードを並べ替えると「手動」に切り替える */
+  sort: SortKey
+  onSortChange: (s: SortKey) => void
 }
 
-export function KanbanBoard({ tasks, showScope, showAssignee, newTaskDefaults }: Props) {
-  const { updateTask, role } = useData()
+/** ドロップ位置の目印（どのカードの上 or 下に入るか） */
+interface DropHint {
+  taskId: string
+  after: boolean
+}
+
+const CARD = 'card:'
+
+// 指の位置にあるカードを優先し、なければ列、どちらもなければ重なりで判定
+const collision: CollisionDetection = (args) => {
+  const hits = pointerWithin(args)
+  const card = hits.find((h) => String(h.id).startsWith(CARD))
+  if (card) return [card]
+  if (hits.length) return hits
+  return rectIntersection(args)
+}
+
+export function KanbanBoard({ tasks, showScope, showAssignee, newTaskDefaults, sort, onSortChange }: Props) {
+  const { updateTask, reorderTasks, role } = useData()
   const { userId } = useAuth()
   const toast = useToast()
   const openEditor = useTaskEditor()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [mobileCol, setMobileCol] = useState<Status>('todo')
+  const [hint, setHint] = useState<DropHint | null>(null)
   // ドラッグ直後のクリックで編集画面が開かないようにする
   const lastDragEnd = useRef(0)
 
@@ -53,17 +79,57 @@ export function KanbanBoard({ tasks, showScope, showAssignee, newTaskDefaults }:
     setActiveId(String(e.active.id))
   }
 
-  function onDragEnd(e: DragEndEvent) {
+  /** ドロップ先を「どの列の何番目か」に変換する */
+  function dropTarget(e: DragOverEvent | DragEndEvent): { status: Status; overTaskId: string | null; after: boolean } | null {
+    const over = e.over
+    if (!over) return null
+    const id = String(over.id)
+    if (!id.startsWith(CARD)) return { status: id as Status, overTaskId: null, after: true }
+    const overTask = tasks.find((t) => t.id === id.slice(CARD.length))
+    if (!overTask || overTask.id === e.active.id) return null
+    // ドラッグ中のカードの中心が、相手のカードの中心より下なら「後ろ」に入れる
+    const a = e.active.rect.current.translated
+    const after = a ? a.top + a.height / 2 > over.rect.top + over.rect.height / 2 : true
+    return { status: overTask.status, overTaskId: overTask.id, after }
+  }
+
+  function onDragOver(e: DragOverEvent) {
+    const t = dropTarget(e)
+    setHint(t?.overTaskId ? { taskId: t.overTaskId, after: t.after } : null)
+  }
+
+  async function onDragEnd(e: DragEndEvent) {
     setActiveId(null)
+    setHint(null)
     lastDragEnd.current = Date.now()
     const task = tasks.find((t) => t.id === e.active.id)
-    const to = e.over?.id as Status | undefined
-    if (!task || !to || task.status === to) return
+    const target = dropTarget(e)
+    if (!task || !target) return
+    // 同じ列の空いている所に落としただけなら何もしない
+    if (!target.overTaskId && target.status === task.status) return
     if (!taskPermission(task, userId!, role).canChangeStatus) {
-      toast('このタスクのステータスは担当者・作成者・管理者のみ変更できます', 'error')
+      toast('このタスクは担当者・作成者・管理者のみ動かせます', 'error')
       return
     }
-    updateTask(task.id, { status: to })
+
+    // 列の移動 = ステータス変更
+    if (target.status !== task.status) {
+      const ok = await updateTask(task.id, { status: target.status })
+      if (!ok) return
+    }
+
+    // 列の中の位置を決めて、その列の並び順をまとめて保存
+    if (target.overTaskId) {
+      const column = tasks.filter((t) => t.status === target.status && t.id !== task.id)
+      const index = column.findIndex((t) => t.id === target.overTaskId) + (target.after ? 1 : 0)
+      const ids = column.map((t) => t.id)
+      ids.splice(index, 0, task.id)
+      const ok = await reorderTasks(ids)
+      if (ok && sort !== 'manual') {
+        onSortChange('manual')
+        toast('並べ替えを「手動（ドラッグ順）」に切り替えました')
+      }
+    }
   }
 
   return (
@@ -84,7 +150,17 @@ export function KanbanBoard({ tasks, showScope, showAssignee, newTaskDefaults }:
         ))}
       </div>
 
-      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collision}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+        onDragCancel={() => {
+          setActiveId(null)
+          setHint(null)
+        }}
+      >
         <div className="thin-scroll -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
           {STATUSES.map((s) => (
             <Column
@@ -93,6 +169,7 @@ export function KanbanBoard({ tasks, showScope, showAssignee, newTaskDefaults }:
               tasks={tasks.filter((t) => t.status === s)}
               showScope={showScope}
               showAssignee={showAssignee}
+              hint={hint}
               onAdd={() => openEditor(null, { ...newTaskDefaults, status: s })}
               onOpen={(t) => Date.now() - lastDragEnd.current > 300 && openEditor(t)}
             />
@@ -109,6 +186,7 @@ function Column({
   tasks,
   showScope,
   showAssignee,
+  hint,
   onAdd,
   onOpen,
 }: {
@@ -116,6 +194,7 @@ function Column({
   tasks: Task[]
   showScope?: boolean
   showAssignee?: boolean
+  hint: DropHint | null
   onAdd: () => void
   onOpen: (t: Task) => void
 }) {
@@ -140,7 +219,14 @@ function Column({
       </header>
       <div className="flex min-h-24 flex-col gap-2">
         {tasks.map((t) => (
-          <DraggableCard key={t.id} task={t} showScope={showScope} showAssignee={showAssignee} onOpen={() => onOpen(t)} />
+          <DraggableCard
+            key={t.id}
+            task={t}
+            showScope={showScope}
+            showAssignee={showAssignee}
+            hint={hint?.taskId === t.id ? (hint.after ? 'after' : 'before') : null}
+            onOpen={() => onOpen(t)}
+          />
         ))}
         {tasks.length === 0 && <p className="py-6 text-center text-xs text-gray-400">ここにドラッグ</p>}
       </div>
@@ -148,10 +234,37 @@ function Column({
   )
 }
 
-function DraggableCard({ task, showScope, showAssignee, onOpen }: { task: Task; showScope?: boolean; showAssignee?: boolean; onOpen: () => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id })
+function DraggableCard({
+  task,
+  showScope,
+  showAssignee,
+  hint,
+  onOpen,
+}: {
+  task: Task
+  showScope?: boolean
+  showAssignee?: boolean
+  hint: 'before' | 'after' | null
+  onOpen: () => void
+}) {
+  // 1 枚のカードが「動かせるもの」と「他のカードを落とせる場所」の両方を兼ねる
+  const drag = useDraggable({ id: task.id })
+  const drop = useDroppable({ id: CARD + task.id })
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} onClick={onOpen} className={`touch-manipulation ${isDragging ? 'opacity-30' : ''}`}>
+    <div
+      ref={(el) => {
+        drag.setNodeRef(el)
+        drop.setNodeRef(el)
+      }}
+      {...drag.attributes}
+      {...drag.listeners}
+      onClick={onOpen}
+      className={`relative touch-manipulation ${drag.isDragging ? 'opacity-30' : ''}`}
+    >
+      {/* 落とす位置の目印（青い線） */}
+      {hint && (
+        <span className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-indigo-500 ${hint === 'before' ? '-top-[5px]' : '-bottom-[5px]'}`} />
+      )}
       <Card task={task} showScope={showScope} showAssignee={showAssignee} />
     </div>
   )

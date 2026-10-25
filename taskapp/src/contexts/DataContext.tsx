@@ -39,6 +39,8 @@ interface DataValue {
   updateTask: (id: string, patch: TaskInput) => Promise<boolean>
   deleteTask: (id: string) => Promise<boolean>
   toggleDone: (task: Task) => Promise<void>
+  /** 並び順を保存（ids の順に上から並ぶ） */
+  reorderTasks: (ids: string[]) => Promise<boolean>
   createCategory: (name: string) => Promise<Category | null>
   refreshNotifications: () => Promise<void>
   markRead: (ids: string[]) => Promise<void>
@@ -239,6 +241,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [toast],
   )
 
+  const reorderTasks = useCallback(
+    async (ids: string[]) => {
+      const before = new Map(tasks.map((t) => [t.id, t.sort_order]))
+      const rank = new Map(ids.map((id, i) => [id, i + 1]))
+      // 楽観的更新: 先に並びを変えてから保存し、失敗したら戻す
+      setTasks((ts) => ts.map((t) => (rank.has(t.id) ? { ...t, sort_order: rank.get(t.id)! } : t)))
+      const { error } = await supabase.rpc('reorder_tasks', { p_ids: ids })
+      if (error) {
+        setTasks((ts) => ts.map((t) => (before.has(t.id) ? { ...t, sort_order: before.get(t.id)! } : t)))
+        toast(errorMessage(error), 'error')
+        return false
+      }
+      return true
+    },
+    [tasks, toast],
+  )
+
   const toggleDone = useCallback(
     async (task: Task) => {
       await updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' })
@@ -281,6 +300,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateTask,
     deleteTask,
     toggleDone,
+    reorderTasks,
     createCategory,
     refreshNotifications,
     markRead,

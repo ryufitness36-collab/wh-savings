@@ -197,7 +197,14 @@ export function TaskBoard({ storageKey, tasks, showScope, showAssignee, newTaskD
           />
         </div>
       ) : (
-        <KanbanBoard tasks={visible} showScope={showScope} showAssignee={showAssignee} newTaskDefaults={newTaskDefaults} />
+        <KanbanBoard
+          tasks={visible}
+          showScope={showScope}
+          showAssignee={showAssignee}
+          newTaskDefaults={newTaskDefaults}
+          sort={sort}
+          onSortChange={setSort}
+        />
       )}
     </div>
   )

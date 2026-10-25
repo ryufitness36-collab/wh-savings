@@ -103,12 +103,13 @@ export function filterByPeriod(tasks: Task[], period: Period, today = todayJST()
 // ---------------------------------------------------------------
 // 並べ替え
 // ---------------------------------------------------------------
-export type SortKey = 'due' | 'priority' | 'created'
+export type SortKey = 'due' | 'priority' | 'created' | 'manual'
 
 export const SORT_LABEL: Record<SortKey, string> = {
   due: '期限順',
   priority: '優先度順',
   created: '作成日順',
+  manual: '手動（ドラッグ順）',
 }
 
 function dueKey(t: Task) {
@@ -127,12 +128,16 @@ export function sortTasks(tasks: Task[], key: SortKey): Task[] {
     if (key === 'priority') {
       return prio(a) - prio(b) || dueKey(a).localeCompare(dueKey(b))
     }
+    if (key === 'manual') {
+      return a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)
+    }
     return b.created_at.localeCompare(a.created_at)
   })
   return arr
 }
 
 const prio = (t: Task) => (t.priority ? PRIORITY_RANK[t.priority] : 3)
+
 
 // ---------------------------------------------------------------
 // 検索・絞り込み
