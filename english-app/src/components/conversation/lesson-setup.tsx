@@ -19,6 +19,8 @@ import {
   SPEEDS,
   SPEED_INFO,
   TEACHERS,
+  TEACHER_STYLES,
+  TEACHER_STYLE_INFO,
   type LessonSettings,
 } from "@/lib/learning/lesson";
 
@@ -99,18 +101,76 @@ export function LessonSetup({
               </button>
             ))}
           </div>
-          {(settings.mode === "free_talk" || settings.mode === "discussion") && (
-            <div className="space-y-2">
-              <Label htmlFor="custom-topic">話したいテーマ（任意）</Label>
-              <Input
-                id="custom-topic"
-                placeholder="例：最近見た映画、好きなカフェ、AIについて"
-                value={settings.customTopic}
-                maxLength={200}
-                onChange={(e) => set("customTopic", e.target.value)}
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="custom-topic">
+              {settings.mode === "free_talk" || settings.mode === "discussion" ? "話したいテーマ（任意）" : "場面の詳細（任意）"}
+            </Label>
+            <Input
+              id="custom-topic"
+              placeholder={
+                settings.mode === "free_talk" || settings.mode === "discussion"
+                  ? "例：最近見た映画、好きなカフェ、AIについて"
+                  : "例：スペシャルティコーヒー専門店で、豆の産地について聞かれる"
+              }
+              value={settings.customTopic}
+              maxLength={200}
+              onChange={(e) => set("customTopic", e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">AI講師</CardTitle>
+          <CardDescription>講師ごとに声・出身・話題が異なります</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4" role="radiogroup" aria-label="AI講師">
+            {TEACHERS.map((t) => {
+              const active = settings.teacherId === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => set("teacherId", t.id)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border p-3 text-left transition-all active:scale-[0.98]",
+                    active ? "border-primary bg-accent ring-1 ring-primary" : "bg-card hover:bg-secondary",
+                  )}
+                >
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_25%,oklch(0.85_0.08_195),oklch(0.55_0.11_200))] font-semibold text-white">
+                    {t.name[0]}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{t.name}</span>
+                    <span className="block text-xs leading-snug text-muted-foreground">{t.description}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <Field label="接し方">
+            <Segmented
+              ariaLabel="接し方"
+              value={settings.teacherStyle}
+              onChange={(v) => set("teacherStyle", v)}
+              options={TEACHER_STYLES.map((st) => ({ value: st, label: TEACHER_STYLE_INFO[st].label }))}
+            />
+            <p className="text-xs text-muted-foreground">{TEACHER_STYLE_INFO[settings.teacherStyle].description}</p>
+          </Field>
+          <div className="space-y-2">
+            <Label htmlFor="teacher-note">講師へのお願い（任意・次回以降も保存されます）</Label>
+            <Input
+              id="teacher-note"
+              placeholder="例：サッカーの話題が好きです／質問は1つずつにしてください"
+              value={settings.teacherNote}
+              maxLength={300}
+              onChange={(e) => set("teacherNote", e.target.value)}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -135,15 +195,6 @@ export function LessonSetup({
               onChange={(v) => set("durationMinutes", v)}
               options={DURATIONS.map((d) => ({ value: d, label: d === 0 ? "無制限" : `${d}分` }))}
             />
-          </Field>
-          <Field label="AI講師">
-            <Segmented
-              ariaLabel="AI講師"
-              value={settings.teacherId}
-              onChange={(v) => set("teacherId", v)}
-              options={TEACHERS.map((t) => ({ value: t.id, label: t.name }))}
-            />
-            <p className="text-xs text-muted-foreground">{TEACHERS.find((t) => t.id === settings.teacherId)?.description}</p>
           </Field>
           <Field label="話す速度">
             <Segmented

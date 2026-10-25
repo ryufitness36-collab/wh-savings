@@ -178,8 +178,49 @@ describe("tutor instructions", () => {
     expect(text).toContain('Mistake: "I went to cafe" -> Correct: "I went to a café"');
   });
 
+  it("includes the tutor persona, style and the learner's request", () => {
+    const text = buildTutorInstructions({ ...DEFAULT_LESSON_SETTINGS, teacherId: "mia", teacherStyle: "coach", teacherNote: "サッカーの話題が好き" });
+    expect(text).toContain("You are Mia");
+    expect(text).toContain("Sydney");
+    expect(text).toContain("speaking coach");
+    expect(text).toContain("サッカーの話題が好き");
+  });
+
+  it("fills defaults for settings saved before Phase 2", () => {
+    const old: Record<string, unknown> = { ...DEFAULT_LESSON_SETTINGS };
+    delete old.teacherStyle;
+    delete old.teacherNote;
+    const parsed = lessonSettingsSchema.parse(old);
+    expect(parsed.teacherStyle).toBe("friendly");
+    expect(parsed.teacherNote).toBe("");
+  });
+
   it("validates lesson settings", () => {
     expect(lessonSettingsSchema.safeParse(DEFAULT_LESSON_SETTINGS).success).toBe(true);
     expect(lessonSettingsSchema.safeParse({ ...DEFAULT_LESSON_SETTINGS, durationMinutes: 7 }).success).toBe(false);
+  });
+});
+
+import { rankWeakCategories } from "./weakness";
+
+describe("weak categories", () => {
+  it("ranks frequent grammar errors and real conversation mistakes above occasional slips", () => {
+    const ranked = rankWeakCategories([
+      { id: "a", attempts: 10, wrong: 1, avgScore: 9, usageMistakes: 0 },
+      { id: "b", attempts: 5, wrong: 4, avgScore: 4, usageMistakes: 0 },
+      { id: "c", attempts: 0, wrong: 0, avgScore: null, usageMistakes: 4 },
+      { id: "d", attempts: 3, wrong: 0, avgScore: 10, usageMistakes: 0 },
+    ]);
+    expect(ranked.map((r) => r.id)).toEqual(["b", "c", "a"]);
+  });
+});
+
+import { weekStart } from "./dates";
+
+describe("weekStart", () => {
+  it("returns the Monday of the week", () => {
+    expect(weekStart("2026-10-25")).toBe("2026-10-19"); // 日曜
+    expect(weekStart("2026-10-19")).toBe("2026-10-19"); // 月曜
+    expect(weekStart("2026-10-21")).toBe("2026-10-19"); // 水曜
   });
 });

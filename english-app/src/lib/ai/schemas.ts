@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { GRAMMAR_CATEGORY_IDS } from "@/lib/learning/grammar";
+
+/** 間違いを分類する文法カテゴリ（当てはまらなければ other） */
+const grammarCategoryField = z
+  .enum([...GRAMMAR_CATEGORY_IDS, "other"])
+  .describe("この間違いに最も関係する文法カテゴリ。当てはまらなければ other");
 
 /**
  * AI（LLM）の出力形式。OpenAI の Structured Outputs で JSON の形を強制する。
@@ -22,6 +28,7 @@ export const conversationReportSchema = z.object({
         original: z.string().describe("学習者が実際に話した英文（文字起こしからそのまま引用）"),
         corrected: z.string().describe("より自然で正しい英文"),
         explanation_ja: z.string().describe("なぜ直すのかを日本語で分かりやすく解説"),
+        grammar_category: grammarCategoryField,
         related: z.array(z.string()).describe("関連する言い換え表現（1〜2個）"),
       }),
     )
@@ -115,6 +122,7 @@ export const writingCorrectionSchema = z.object({
       original: z.string().describe("元の文の該当部分"),
       corrected: z.string().describe("修正後"),
       explanation_ja: z.string().describe("修正理由（日本語）"),
+      grammar_category: grammarCategoryField,
     }),
   ),
   natural_alternatives: z.array(
@@ -139,3 +147,29 @@ export const WRITING_LEVELS = [
 ] as const;
 export type WritingLevel = (typeof WRITING_LEVELS)[number]["id"];
 export const WRITING_LEVEL_IDS = WRITING_LEVELS.map((l) => l.id) as [WritingLevel, ...WritingLevel[]];
+
+// ---------- AI学習プランナー ----------
+
+export const aiPlanSchema = z.object({
+  message_ja: z.string().describe("今日の学習方針を伝える一言（日本語、2文以内、具体的に）"),
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(["review", "grammar", "conversation", "writing"]),
+        title_ja: z.string().describe("短いタイトル（例：現在完了形の問題）"),
+        detail_ja: z.string().describe("やる内容（例：5問・苦手克服ドリル）"),
+        reason_ja: z.string().describe("なぜこれを勧めるのか、学習データに基づく理由（日本語1文）"),
+        minutes: z.number().int().min(1).max(30),
+        grammar_category: z.enum([...GRAMMAR_CATEGORY_IDS, "none"]).describe("kind=grammar のときの分野。それ以外は none"),
+        grammar_weak_drill: z.boolean().describe("kind=grammar で、最近の間違いに合わせた苦手克服ドリルにするなら true"),
+        question_count: z.number().int().min(0).max(10).describe("kind=grammar/review の問題数。それ以外は 0"),
+        conversation_mode: z
+          .enum(["free_talk", "daily", "cafe", "travel", "roleplay", "discussion", "grammar_practice", "none"])
+          .describe("kind=conversation のときのモード。それ以外は none"),
+        scenario_id: z.string().nullable().describe("kind=conversation のときの場面ID（候補から選ぶ）。それ以外は null"),
+        writing_topic_ja: z.string().nullable().describe("kind=writing のときの英作文のお題（日本語）。それ以外は null"),
+      }),
+    )
+    .describe("2〜5個。合計時間は指定された学習時間以内"),
+});
+export type AiPlan = z.infer<typeof aiPlanSchema>;

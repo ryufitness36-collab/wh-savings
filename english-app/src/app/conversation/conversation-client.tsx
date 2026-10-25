@@ -11,6 +11,7 @@ import { useRealtimeConversation } from "@/hooks/use-realtime-conversation";
 import { apiFetch, errorMessage } from "@/lib/client/api";
 import {
   CONVERSATION_MODES,
+  DURATIONS,
   DEFAULT_LESSON_SETTINGS,
   getTeacher,
   lessonSettingsSchema,
@@ -25,6 +26,8 @@ export function ConversationClient() {
   const params = useSearchParams();
   const practiceOf = params.get("practice");
   const modeParam = params.get("mode");
+  const scenarioParam = params.get("scenario");
+  const minutesParam = Number(params.get("minutes"));
   const { data: appStatus } = useAppStatus();
 
   const [saved, setSaved, loaded] = useLocalStorage<LessonSettings>("lesson-settings", DEFAULT_LESSON_SETTINGS, lessonSettingsSchema);
@@ -41,7 +44,11 @@ export function ConversationClient() {
     let next = saved;
     if (modeParam && (CONVERSATION_MODES as readonly string[]).includes(modeParam)) {
       const m = modeParam as ConversationMode;
-      next = { ...next, mode: m, scenarioId: MODE_INFO[m].scenarios[0].id };
+      const scenario = MODE_INFO[m].scenarios.find((sc) => sc.id === scenarioParam) ?? MODE_INFO[m].scenarios[0];
+      next = { ...next, mode: m, scenarioId: scenario.id };
+    }
+    if ((DURATIONS as readonly number[]).includes(minutesParam) && minutesParam > 0) {
+      next = { ...next, durationMinutes: minutesParam as LessonSettings["durationMinutes"] };
     }
     setSettings(next);
     if (practiceOf) {
@@ -52,7 +59,7 @@ export function ConversationClient() {
         })
         .catch((e) => toast.error(`復習元の会話を読み込めませんでした：${errorMessage(e)}`));
     }
-  }, [loaded, saved, modeParam, practiceOf]);
+  }, [loaded, saved, modeParam, scenarioParam, minutesParam, practiceOf]);
 
   const timeLimitSec = conversation && conversation.settings.durationMinutes > 0 ? conversation.settings.durationMinutes * 60 : null;
 

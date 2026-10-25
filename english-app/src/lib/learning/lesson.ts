@@ -39,6 +39,8 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "hobbies", label: "趣味", brief: "Talk about the learner's hobbies and free time." },
       { id: "weekend", label: "週末の予定", brief: "Talk about what the learner did last weekend and plans for the next one." },
       { id: "food", label: "食べ物", brief: "Talk about favorite foods, cooking and restaurants." },
+      { id: "movies", label: "映画・ドラマ", brief: "Talk about movies, TV series and anime the learner likes, and ask why they like them." },
+      { id: "work_study", label: "仕事・勉強", brief: "Talk about the learner's job or studies, what they do on a typical day and what they find interesting or difficult." },
     ],
   },
   daily: {
@@ -50,6 +52,8 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "self_intro", label: "自己紹介", brief: "You just met the learner at a meetup. Help them introduce themselves (name, job, hometown, hobbies)." },
       { id: "friend", label: "友人と雑談", brief: "You are the learner's friendly English-speaking friend catching up over coffee." },
       { id: "small_talk", label: "スモールトーク", brief: "Practice small talk: weather, recent news, weekend, work." },
+      { id: "family", label: "家族・ペット", brief: "Ask the learner about their family members or pets: what they are like and what they do together." },
+      { id: "plans", label: "予定を立てる", brief: "You are the learner's friend. Together, make plans to meet this weekend: decide when, where and what to do." },
     ],
   },
   cafe: {
@@ -61,6 +65,8 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "order", label: "注文する（客）", brief: "You are a barista at a cafe. The learner is the customer ordering drinks and food. Ask about size, milk, for here or to go, etc." },
       { id: "serve", label: "接客する（店員）", brief: "You are a foreign customer at a cafe in Japan. The learner is the barista serving you. Order something, ask questions about the menu and pay." },
       { id: "explain_coffee", label: "コーヒーを説明", brief: "You are a curious customer asking the learner (a barista) to explain coffee beans, roasts, flavors and brewing methods." },
+      { id: "recommend", label: "おすすめを聞く（客）", brief: "You are a barista. The learner is a customer who can't decide and asks for recommendations. Describe a few drinks and ask about their preferences." },
+      { id: "cafe_trouble", label: "注文ミスに対応（店員）", brief: "You are a customer who received the wrong drink. The learner is the barista and must apologize and fix the problem politely." },
     ],
   },
   travel: {
@@ -73,6 +79,9 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "hotel", label: "ホテル", brief: "You are a hotel front desk clerk. The learner is checking in and asking about facilities or a problem with the room." },
       { id: "restaurant", label: "レストラン", brief: "You are a server at a restaurant abroad. The learner is a customer ordering, asking for recommendations and paying." },
       { id: "directions", label: "道をたずねる", brief: "You are a local person on the street. The learner is a tourist asking for directions and recommendations." },
+      { id: "shopping", label: "ショッピング", brief: "You are a shop assistant at a souvenir shop abroad. The learner is looking for gifts, asks about prices and pays." },
+      { id: "taxi", label: "タクシー・交通", brief: "You are a taxi driver (or a station staff member). The learner needs to get to their hotel and asks about fares and time." },
+      { id: "trouble", label: "旅先のトラブル", brief: "You are a staff member at a hotel or police box. The learner has lost their wallet or passport and needs help." },
     ],
   },
   roleplay: {
@@ -85,6 +94,8 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "customer", label: "AIが顧客", brief: "You are a customer with a small complaint (wrong order). The learner is the staff member who must handle it politely." },
       { id: "new_friend", label: "AIが新しい友人", brief: "You are a new friend from abroad visiting Japan. Ask the learner for recommendations about places and food." },
       { id: "colleague", label: "AIが同僚", brief: "You are a new foreign colleague on your first day. Ask the learner about the office, lunch spots and the team." },
+      { id: "interviewer", label: "AIが面接官", brief: "You are a friendly interviewer for a part-time job at an international cafe. Ask typical interview questions one at a time." },
+      { id: "doctor", label: "AIが医師", brief: "You are a doctor at a clinic abroad. The learner is a patient who must explain their symptoms." },
     ],
   },
   discussion: {
@@ -97,6 +108,8 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "cashless", label: "キャッシュレス社会", brief: "Discuss: Should all shops go cashless? Ask for the learner's opinion, reasons and examples." },
       { id: "travel_style", label: "旅行のスタイル", brief: "Discuss: Is it better to travel alone or with friends? Ask for opinions and experiences." },
       { id: "social_media", label: "SNSとの付き合い方", brief: "Discuss: Is social media good or bad for us? Ask for the learner's opinion and personal experience." },
+      { id: "ai_jobs", label: "AIと仕事", brief: "Discuss: Will AI take away people's jobs? Ask for the learner's opinion, reasons and examples." },
+      { id: "city_country", label: "都会と田舎", brief: "Discuss: Is it better to live in a big city or in the countryside? Ask for opinions and reasons." },
     ],
   },
   grammar_practice: {
@@ -111,6 +124,9 @@ export const MODE_INFO: Record<ConversationMode, ModeInfo> = {
       { id: "comparatives", label: "比較級・最上級", brief: "Ask the learner to compare things (cities, foods, seasons) so they use comparatives and superlatives." },
       { id: "conditionals", label: "仮定法", brief: "Ask hypothetical questions (What would you do if...?) so the learner uses the second conditional." },
       { id: "modals", label: "助動詞", brief: "Create situations where the learner uses can / should / must / might (advice, rules, possibility)." },
+      { id: "gerunds", label: "不定詞・動名詞", brief: "Ask about likes, hobbies and goals so the learner uses gerunds and infinitives (I enjoy -ing, I want to...)." },
+      { id: "relative", label: "関係代名詞", brief: "Ask the learner to describe people, places and things so they use relative clauses (a friend who..., a place where...)." },
+      { id: "passive", label: "受動態", brief: "Ask about famous things, products and places so the learner uses the passive voice (It was built in..., It is made of...)." },
     ],
   },
 };
@@ -160,12 +176,65 @@ export const ACCENT_INFO: Record<Accent, { label: string; instruction: string }>
   australian: { label: "オーストラリア英語", instruction: "Speak with an Australian accent and use common Australian expressions, but keep them understandable." },
 };
 
-/** AI講師（OpenAI Realtime の音声） */
+/** AI講師（OpenAI Realtime の音声と人物設定） */
 export const TEACHERS = [
-  { id: "emma", name: "Emma", voice: "marin", description: "明るく丁寧な講師" },
-  { id: "leo", name: "Leo", voice: "cedar", description: "落ち着いたフレンドリーな講師" },
+  {
+    id: "emma",
+    name: "Emma",
+    voice: "marin",
+    description: "明るく丁寧な講師",
+    persona: "You are from Seattle, USA. You love coffee, hiking and indie music. You are cheerful and encouraging.",
+  },
+  {
+    id: "leo",
+    name: "Leo",
+    voice: "cedar",
+    description: "落ち着いたフレンドリーな講師",
+    persona: "You are from Manchester, UK. You like football, cooking and history. You are calm, patient and thoughtful.",
+  },
+  {
+    id: "mia",
+    name: "Mia",
+    voice: "coral",
+    description: "元気でおしゃべりな講師",
+    persona: "You are from Sydney, Australia. You love travel, the beach and food from around the world. You are energetic and talkative but still let the learner speak.",
+  },
+  {
+    id: "noah",
+    name: "Noah",
+    voice: "ash",
+    description: "ビジネス経験豊富な講師",
+    persona: "You are from Toronto, Canada. You worked in hospitality and sales for years. You are professional, clear and practical.",
+  },
 ] as const;
 export type TeacherId = (typeof TEACHERS)[number]["id"];
+export const TEACHER_IDS = TEACHERS.map((t) => t.id) as [TeacherId, ...TeacherId[]];
+
+/** 講師の接し方 */
+export const TEACHER_STYLES = ["friendly", "gentle", "coach", "casual"] as const;
+export type TeacherStyle = (typeof TEACHER_STYLES)[number];
+export const TEACHER_STYLE_INFO: Record<TeacherStyle, { label: string; description: string; instruction: string }> = {
+  friendly: {
+    label: "フレンドリー",
+    description: "友達のように楽しく",
+    instruction: "Be warm and friendly like a good friend. React with genuine interest and share small personal comments sometimes.",
+  },
+  gentle: {
+    label: "やさしく丁寧",
+    description: "ゆっくり待ってくれる",
+    instruction: "Be extra gentle and patient. Praise effort often, never rush the learner, and rephrase questions more simply if they hesitate.",
+  },
+  coach: {
+    label: "しっかり指導",
+    description: "もっと長く話すよう促す",
+    instruction: "Act like a supportive but demanding speaking coach. Push the learner to give longer answers with reasons and examples (e.g. 'Can you tell me more?', 'Why do you think so?').",
+  },
+  casual: {
+    label: "くだけた会話",
+    description: "ネイティブの日常表現多め",
+    instruction: "Talk casually like native speakers do with friends, using common everyday expressions and contractions, but keep it understandable for the learner's level.",
+  },
+};
 
 export const CORRECTION_MODES = ["inline", "after"] as const;
 export type CorrectionMode = (typeof CORRECTION_MODES)[number];
@@ -178,7 +247,10 @@ export const lessonSettingsSchema = z.object({
   durationMinutes: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(25), z.literal(0)]),
   speed: z.enum(SPEEDS),
   accent: z.enum(ACCENTS),
-  teacherId: z.enum(["emma", "leo"]),
+  teacherId: z.enum(TEACHER_IDS),
+  teacherStyle: z.enum(TEACHER_STYLES).default("friendly"),
+  /** 講師へのお願い（例：「ゆっくり話して」「サッカーの話題が好き」） */
+  teacherNote: z.string().max(300).default(""),
   correctionMode: z.enum(CORRECTION_MODES),
   japaneseSupport: z.boolean(),
 });
@@ -193,6 +265,8 @@ export const DEFAULT_LESSON_SETTINGS: LessonSettings = {
   speed: "normal",
   accent: "american",
   teacherId: "emma",
+  teacherStyle: "friendly",
+  teacherNote: "",
   correctionMode: "after",
   japaneseSupport: true,
 };

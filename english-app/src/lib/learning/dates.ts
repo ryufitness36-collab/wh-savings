@@ -37,3 +37,10 @@ export function computeStreak(studyDates: Iterable<string>, todayKey: string): n
   }
   return streak;
 }
+
+/** その日が属する週の月曜日（YYYY-MM-DD） */
+export function weekStart(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=日曜
+  return addDays(key, -((weekday + 6) % 7));
+}

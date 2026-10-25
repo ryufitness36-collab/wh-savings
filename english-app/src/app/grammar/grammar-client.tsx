@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, CheckCircle2, Lightbulb, Loader2, RotateCcw, Sparkles, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, Lightbulb, Loader2, RotateCcw, Sparkles, Target, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,14 +49,25 @@ export function GrammarClient() {
   const [index, setIndex] = useState(0);
   const [answered, setAnswered] = useState<Answered[]>([]);
 
-  const start = async () => {
+  const [focus, setFocus] = useState<"none" | "weak">(params.get("focus") === "weak" ? "weak" : "none");
+
+  const start = async (nextFocus: "none" | "weak" = focus) => {
     setPhase("loading");
+    setFocus(nextFocus);
     try {
-      const { questions } = await apiFetch<{ questions: GrammarQuestion[] }>("/api/grammar/questions", {
+      const res = await apiFetch<{ questions: GrammarQuestion[]; category: GrammarCategoryId; focused: boolean }>("/api/grammar/questions", {
         method: "POST",
-        json: { category, level, format, count },
+        json: { category, level, format, count, focus: nextFocus },
       });
-      setQuestions(questions);
+      if (nextFocus === "weak") {
+        setCategory(res.category);
+        toast.message(
+          res.focused
+            ? `苦手分野「${grammarCategoryLabel(res.category)}」を、最近の間違いに合わせて出題します`
+            : `「${grammarCategoryLabel(res.category)}」から出題します（まだ間違いの記録が少ないため）`,
+        );
+      }
+      setQuestions(res.questions);
       setIndex(0);
       setAnswered([]);
       setPhase("quiz");
@@ -133,7 +144,7 @@ export function GrammarClient() {
           ))}
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={start}>
+          <Button onClick={() => void start()}>
             <RotateCcw /> 同じ設定でもう一度
           </Button>
           <Button variant="outline" onClick={() => setPhase("select")}>
@@ -153,7 +164,7 @@ export function GrammarClient() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">文法カテゴリ</h2>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
           {GRAMMAR_CATEGORIES.map((c) => (
             <button
               key={c.id}
@@ -196,10 +207,22 @@ export function GrammarClient() {
         </CardContent>
       </Card>
 
-      <Button size="lg" className="h-14 w-full text-base" onClick={start} disabled={phase === "loading" || (status ? !status.openai : false)}>
-        {phase === "loading" ? <Loader2 className="animate-spin" /> : <Sparkles />}
-        {phase === "loading" ? "AIが問題を作成中…" : "問題を作成して始める"}
-      </Button>
+      <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+        <Button size="lg" className="h-14 text-base" onClick={() => void start("none")} disabled={phase === "loading" || (status ? !status.openai : false)}>
+          {phase === "loading" ? <Loader2 className="animate-spin" /> : <Sparkles />}
+          {phase === "loading" ? "AIが問題を作成中…" : "問題を作成して始める"}
+        </Button>
+        <Button
+          size="lg"
+          variant={focus === "weak" ? "default" : "outline"}
+          className={cn("h-14 text-base", focus === "weak" && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background")}
+          onClick={() => void start("weak")}
+          disabled={phase === "loading" || (status ? !status.openai : false)}
+          title="一番苦手な分野を自動で選び、最近の間違いと同じ文法ポイントを出題します"
+        >
+          <Target /> 苦手克服ドリル
+        </Button>
+      </div>
       {status && !status.openai && <p className="text-center text-sm text-destructive">問題の作成には OpenAI APIキーの設定が必要です。</p>}
     </div>
   );

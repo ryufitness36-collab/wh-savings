@@ -34,6 +34,8 @@ export async function generateQuestions(params: {
   level: GrammarLevelId;
   format: QuestionFormat | "mixed";
   count: number;
+  /** 最近の間違い（英会話・英作文・文法問題）を踏まえて出題する */
+  focusMistakes?: { prompt: string; answer: string }[];
   userId?: string;
 }): Promise<GrammarQuestion[]> {
   const userId = params.userId ?? LOCAL_USER_ID;
@@ -64,6 +66,11 @@ export async function generateQuestions(params: {
       `Difficulty: ${level.label} (${level.guide})`,
       `Number of questions: ${params.count}`,
       formatText,
+      params.focusMistakes?.length
+        ? `The learner recently made these mistakes. Write questions that practice the SAME grammar points (do not copy the sentences):\n${params.focusMistakes
+            .map((m) => `- ${m.prompt.replace(/\n/g, " ")} -> correct: ${m.answer}`)
+            .join("\n")}`
+        : "",
       recent.length ? `Avoid repeating these recent questions:\n${recent.map((r) => `- ${r}`).join("\n")}` : "",
     ].join("\n"),
   });
@@ -120,6 +127,42 @@ const GRADE_INSTRUCTIONS = `あなたは日本人英語学習者の解答を採�
 - 0: 無回答・全く無関係
 is_correct は8点以上で true。解説は日本語で、学習者が次に間違えないよう具体的に。`;
 
+async function gradeWithAI(lines: string[]): Promise<GradeResult> {
+  const result = await generateStructured({
+    schema: gradeResultSchema,
+    name: "grade_result",
+    instructions: GRADE_INSTRUCTIONS,
+    input: lines.filter(Boolean).join("\n"),
+    maxOutputTokens: 3000,
+  });
+  // モデルの判定と点数の整合性をとる
+  result.is_correct = result.score >= CORRECT_THRESHOLD;
+  return result;
+}
+
+/** 復習問題の答えを採点する（模範解答と一致すれば AI を使わない） */
+export async function gradeReviewAnswer(item: { prompt: string; answer: string; explanation: string }, userAnswer: string) {
+  if (answersMatch(userAnswer, item.answer)) {
+    const result: GradeResult = {
+      score: 10,
+      is_correct: true,
+      verdict_ja: "正解です！",
+      model_answer: item.answer,
+      explanation_ja: item.explanation,
+      mistakes: [],
+      alternatives: [],
+    };
+    return { result, gradedBy: "local" as const };
+  }
+  const result = await gradeWithAI([
+    `Question: ${item.prompt}`,
+    `Model answer: ${item.answer}`,
+    item.explanation ? `Note about the original mistake (Japanese): ${item.explanation}` : "",
+    `Learner's answer: ${userAnswer}`,
+  ]);
+  return { result, gradedBy: "ai" as const };
+}
+
 export async function gradeAnswer(params: {
   question: GrammarQuestion;
   userAnswer: string;
@@ -148,24 +191,16 @@ export async function gradeAnswer(params: {
     };
   } else {
     gradedBy = "ai";
-    result = await generateStructured({
-      schema: gradeResultSchema,
-      name: "grade_result",
-      instructions: GRADE_INSTRUCTIONS,
-      input: [
-        `Question format: ${q.format}`,
-        `Instruction: ${q.instruction_ja}`,
-        `Question: ${q.prompt}`,
-        q.format === "reorder" ? `Words given: ${q.options.join(" / ")} (the learner must use all of these words)` : "",
-        `Grammar point: ${q.grammar_point}`,
-        `Model answer: ${q.correct_answer}`,
-        q.acceptable_answers.length ? `Other accepted answers: ${q.acceptable_answers.join(" | ")}` : "",
-        `Learner's answer: ${userAnswer}`,
-      ].filter(Boolean).join("\n"),
-      maxOutputTokens: 3000,
-    });
-    // モデルの判定と点数の整合性をとる
-    result.is_correct = result.score >= CORRECT_THRESHOLD;
+    result = await gradeWithAI([
+      `Question format: ${q.format}`,
+      `Instruction: ${q.instruction_ja}`,
+      `Question: ${q.prompt}`,
+      q.format === "reorder" ? `Words given: ${q.options.join(" / ")} (the learner must use all of these words)` : "",
+      `Grammar point: ${q.grammar_point}`,
+      `Model answer: ${q.correct_answer}`,
+      q.acceptable_answers.length ? `Other accepted answers: ${q.acceptable_answers.join(" | ")}` : "",
+      `Learner's answer: ${userAnswer}`,
+    ]);
   }
 
   const attemptId = newId();

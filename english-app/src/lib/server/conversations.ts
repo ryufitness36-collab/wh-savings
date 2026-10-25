@@ -177,7 +177,7 @@ export async function generateReport(id: string, userId = LOCAL_USER_ID): Promis
       report.corrections.map((x) => ({
         source: "conversation" as const,
         sourceId: id,
-        category: x.type,
+        category: x.grammar_category ?? x.type,
         prompt: `次の英文をより自然・正確に直してください：\n${x.original}`,
         answer: x.corrected,
         explanation: x.explanation_ja,

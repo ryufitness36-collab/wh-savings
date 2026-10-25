@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowRight, Languages, Loader2, PenLine, Trash2 } from "lucide-react";
+import { ArrowRight, Languages, Lightbulb, Loader2, PenLine, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ function useEditTimer() {
 }
 
 export function WritingClient() {
+  const params = useSearchParams();
+  const topic = params.get("topic")?.slice(0, 200) ?? null;
   const { data: status } = useAppStatus();
   const disabled = status ? !status.openai : false;
   const history = useFetch<{ entries: WritingEntry[] }>("/api/writing");
@@ -65,6 +68,15 @@ export function WritingClient() {
           <TabsTrigger value="history">履歴</TabsTrigger>
         </TabsList>
         <TabsContent value="correct">
+          {topic && (
+            <p className="mb-4 flex items-start gap-2 rounded-xl border border-primary/30 bg-accent p-4 text-sm text-accent-foreground">
+              <Lightbulb className="mt-0.5 size-4 shrink-0" />
+              <span>
+                <b>今日のお題：</b>
+                {topic}
+              </span>
+            </p>
+          )}
           <CorrectPanel disabled={disabled} onSaved={history.reload} />
         </TabsContent>
         <TabsContent value="translate">

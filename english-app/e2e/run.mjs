@@ -10,6 +10,7 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "english-app-e2e-"));
+const DATABASE_PATH = path.join(tmp, "e2e.db");
 const PORT = 3199;
 const MOCK_PORT = 4019;
 const procs = [];
@@ -36,7 +37,7 @@ function run(file) {
   return new Promise((resolve) => {
     const p = spawn(process.execPath, [path.join(root, "e2e", file), path.join(root, "e2e", "screenshots")], {
       cwd: root,
-      env: { ...process.env, E2E_BASE: `http://localhost:${PORT}` },
+      env: { ...process.env, E2E_BASE: `http://localhost:${PORT}`, DATABASE_PATH },
       stdio: "inherit",
     });
     p.on("exit", (code) => resolve(code ?? 1));
@@ -49,11 +50,11 @@ try {
   start(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
     OPENAI_API_KEY: "sk-e2e-test",
     OPENAI_BASE_URL: `http://localhost:${MOCK_PORT}/v1`,
-    DATABASE_PATH: path.join(tmp, "e2e.db"),
+    DATABASE_PATH,
     APP_PASSWORD: "",
   });
   await waitFor(`http://localhost:${PORT}/api/status`);
-  for (const file of ["realtime.e2e.cjs", "pages.e2e.cjs"]) {
+  for (const file of ["realtime.e2e.cjs", "pages.e2e.cjs", "phase2.e2e.cjs"]) {
     console.log(`\n▶ ${file}`);
     const code = await run(file);
     console.log(code === 0 ? `✔ ${file}` : `✘ ${file}`);

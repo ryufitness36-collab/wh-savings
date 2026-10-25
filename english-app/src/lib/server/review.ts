@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { getDb, LOCAL_USER_ID, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
 import { nextReview, type ReviewRating } from "@/lib/learning/srs";
@@ -97,4 +97,15 @@ export function archiveReviewItem(id: string, userId = LOCAL_USER_ID) {
     .set({ archived: true })
     .where(and(eq(schema.reviewItems.id, id), eq(schema.reviewItems.userId, userId)))
     .run();
+}
+
+/** ある文法カテゴリの最近の間違い（苦手克服ドリルの出題に使う） */
+export function getRecentMistakes(category: string, limit = 8, userId = LOCAL_USER_ID) {
+  return getDb()
+    .select({ prompt: schema.reviewItems.prompt, answer: schema.reviewItems.answer })
+    .from(schema.reviewItems)
+    .where(and(eq(schema.reviewItems.userId, userId), eq(schema.reviewItems.category, category)))
+    .orderBy(desc(schema.reviewItems.createdAt))
+    .limit(limit)
+    .all();
 }

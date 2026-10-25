@@ -54,7 +54,7 @@ const BASE = process.env.E2E_BASE ?? "http://localhost:3100";
   await page.screenshot({ path: `${SHOTS}/review.png` });
 
   await page.goto(BASE + "/progress");
-  await page.getByText("日別の学習時間（直近14日）").waitFor();
+  await page.getByRole("heading", { name: "学習時間の推移" }).waitFor();
   await page.screenshot({ path: `${SHOTS}/progress.png`, fullPage: true });
   await page.goto(BASE + "/settings");
   await page.getByText("設定済み").waitFor();

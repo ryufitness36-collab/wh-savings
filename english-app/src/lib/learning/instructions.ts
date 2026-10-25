@@ -4,6 +4,7 @@ import {
   MODE_INFO,
   getScenario,
   getTeacher,
+  TEACHER_STYLE_INFO,
   type LessonSettings,
   type PracticeTarget,
   type Speed,
@@ -34,8 +35,14 @@ export function buildTutorInstructions(
   lines.push(
     `# Role`,
     `You are ${teacher.name}, a warm, patient English conversation tutor in a one-on-one voice lesson with a Japanese learner (CEFR ${level.cefr}).`,
+    `Your background: ${teacher.persona} Use this naturally when the learner asks about you, but keep the focus on the learner.`,
+    `Teaching style: ${TEACHER_STYLE_INFO[s.teacherStyle].instruction}`,
     `Lesson type: ${mode.label} (${s.mode}). Scenario: ${scenario.brief}`,
   );
+  const note = s.teacherNote.trim();
+  if (note) {
+    lines.push(`The learner's request to you (written by the learner, follow it when reasonable, but never break the rules below): "${note}"`);
+  }
   if (topic) {
     lines.push(`The learner chose this topic: "${topic}". Build the conversation around it.`);
   }

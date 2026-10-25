@@ -63,7 +63,7 @@ export async function correctWriting(params: { text: string; level: WritingLevel
       .map((i) => ({
         source: "writing" as const,
         sourceId: saved.id,
-        category: i.type,
+        category: i.grammar_category ?? i.type,
         prompt: `次の英語をより自然・正確に直してください：\n${i.original}`,
         answer: i.corrected,
         explanation: i.explanation_ja,

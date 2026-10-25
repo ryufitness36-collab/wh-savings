@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Eye, PartyPopper, Trash2 } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, PartyPopper, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { SpeakButton } from "@/components/speak-button";
 import { useFetch } from "@/hooks/use-fetch";
+import { useAppStatus } from "@/hooks/use-status";
+import type { GradeResult } from "@/lib/ai/schemas";
 import { apiFetch, errorMessage } from "@/lib/client/api";
 import { answersMatch } from "@/lib/learning/grading";
 import { RATING_LABEL, type ReviewRating } from "@/lib/learning/srs";
@@ -45,6 +47,9 @@ export function ReviewClient() {
   const [answer, setAnswer] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [check, setCheck] = useState<{ result: GradeResult; suggestedRating: ReviewRating } | null>(null);
+  const { data: status } = useAppStatus();
   const shownAt = useRef(0);
 
   const items = data?.items ?? [];
@@ -59,6 +64,25 @@ export function ReviewClient() {
     setIndex((i) => i + 1);
     setAnswer("");
     setRevealed(false);
+    setCheck(null);
+  };
+
+  /** AIで答えを採点してから答えを表示する */
+  const checkWithAI = async () => {
+    if (!item || !answer.trim()) return;
+    setChecking(true);
+    try {
+      const res = await apiFetch<{ result: GradeResult; suggestedRating: ReviewRating }>(`/api/review/${item.id}/check`, {
+        method: "POST",
+        json: { answer },
+      });
+      setCheck(res);
+      setRevealed(true);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setChecking(false);
+    }
   };
 
   const rate = async (rating: ReviewRating) => {
@@ -136,7 +160,7 @@ export function ReviewClient() {
                 {item.reps > 0 && <Badge variant="outline">{item.reps}回目の正解済み</Badge>}
               </div>
               <CardTitle className="pt-2 text-lg leading-relaxed whitespace-pre-wrap">{item.prompt}</CardTitle>
-              <CardDescription>答えを入力（または頭の中で考えて）から「答えを見る」を押してください</CardDescription>
+              <CardDescription>答えを入力して「AIで採点する」、または頭の中で考えてから「答えを見る」を押してください</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
@@ -149,9 +173,15 @@ export function ReviewClient() {
                 autoCapitalize="off"
               />
               {!revealed ? (
-                <Button className="w-full" size="lg" onClick={() => setRevealed(true)}>
-                  <Eye /> 答えを見る
-                </Button>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button size="lg" variant="outline" onClick={() => setRevealed(true)} disabled={checking}>
+                    <Eye /> 答えを見る
+                  </Button>
+                  <Button size="lg" onClick={checkWithAI} disabled={checking || !answer.trim() || (status ? !status.openai : false)}>
+                    {checking ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    {checking ? "採点中…" : "AIで採点する"}
+                  </Button>
+                </div>
               ) : (
                 <div className="animate-in fade-in space-y-4">
                   <div className="rounded-xl bg-secondary/60 p-4">
@@ -160,7 +190,21 @@ export function ReviewClient() {
                       <p className="text-lg font-semibold text-added-fg">{item.answer}</p>
                       <SpeakButton text={item.answer} />
                     </div>
-                    {answer.trim() && (
+                    {check && (
+                      <div className="mt-3 rounded-lg bg-card p-3 text-sm">
+                        <p className={cn("font-semibold", check.result.is_correct ? "text-success" : "text-destructive")}>
+                          {check.result.verdict_ja}（{check.result.score} / 10点）
+                        </p>
+                        {check.result.mistakes.map((m, i) => (
+                          <p key={i} className="mt-1">
+                            <span className="text-removed-fg line-through">{m.part}</span> → <span className="text-added-fg">{m.fix}</span>
+                            <span className="text-muted-foreground">：{m.reason_ja}</span>
+                          </p>
+                        ))}
+                        <p className="mt-1 leading-relaxed text-muted-foreground">{check.result.explanation_ja}</p>
+                      </div>
+                    )}
+                    {answer.trim() && !check && (
                       <p className={cn("mt-2 flex items-center gap-1.5 text-sm", answersMatch(answer, item.answer) ? "text-success" : "text-muted-foreground")}>
                         {answersMatch(answer, item.answer) && <CheckCircle2 className="size-4" />}
                         {answersMatch(answer, item.answer) ? "模範解答と一致しました！" : "あなたの答えと比べて、自己評価してください"}
@@ -169,12 +213,14 @@ export function ReviewClient() {
                     {item.explanation && <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.explanation}</p>}
                   </div>
                   <div>
-                    <p className="mb-2 text-sm font-medium">どのくらいできましたか？</p>
+                    <p className="mb-2 text-sm font-medium">
+                      どのくらいできましたか？{check && <span className="font-normal text-muted-foreground">（AIのおすすめ：{RATING_LABEL[check.suggestedRating]}）</span>}
+                    </p>
                     <div className="grid grid-cols-4 gap-2">
                       {RATINGS.map((r) => (
                         <Button
                           key={r}
-                          variant={r === "again" ? "outline" : r === "good" ? "default" : "secondary"}
+                          variant={(check ? r === check.suggestedRating : r === "good") ? "default" : r === "again" ? "outline" : "secondary"}
                           className="h-auto flex-col gap-0 py-2.5"
                           disabled={busy}
                           onClick={() => void rate(r)}

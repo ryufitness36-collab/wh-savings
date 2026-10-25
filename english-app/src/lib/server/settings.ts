@@ -13,21 +13,47 @@ export type PrivacySettings = z.infer<typeof privacySettingsSchema>;
 const DEFAULT_PRIVACY: PrivacySettings = { saveTranscripts: true };
 
 export function getPrivacySettings(userId = LOCAL_USER_ID): PrivacySettings {
-  const db = getDb();
-  const row = db
-    .select()
-    .from(schema.settings)
-    .where(and(eq(schema.settings.userId, userId), eq(schema.settings.key, "privacy")))
-    .get();
-  if (!row) return DEFAULT_PRIVACY;
-  const parsed = privacySettingsSchema.safeParse(JSON.parse(row.value));
-  return parsed.success ? parsed.data : DEFAULT_PRIVACY;
+  return readSetting("privacy", privacySettingsSchema, DEFAULT_PRIVACY, userId);
 }
 
 export function savePrivacySettings(value: PrivacySettings, userId = LOCAL_USER_ID) {
-  const db = getDb();
-  db.insert(schema.settings)
-    .values({ userId, key: "privacy", value: JSON.stringify(value) })
+  writeSetting("privacy", value, userId);
+}
+
+/** 学習目標 */
+export const goalsSchema = z.object({
+  weeklyMinutes: z.number().int().min(10).max(3000),
+});
+export type Goals = z.infer<typeof goalsSchema>;
+
+const DEFAULT_GOALS: Goals = { weeklyMinutes: 120 };
+
+function readSetting<T>(key: string, schemaT: z.ZodType<T>, fallback: T, userId: string): T {
+  const row = getDb()
+    .select()
+    .from(schema.settings)
+    .where(and(eq(schema.settings.userId, userId), eq(schema.settings.key, key)))
+    .get();
+  if (!row) return fallback;
+  const parsed = schemaT.safeParse(JSON.parse(row.value));
+  return parsed.success ? parsed.data : fallback;
+}
+
+function writeSetting(key: string, value: unknown, userId: string) {
+  getDb()
+    .insert(schema.settings)
+    .values({ userId, key, value: JSON.stringify(value) })
     .onConflictDoUpdate({ target: [schema.settings.userId, schema.settings.key], set: { value: JSON.stringify(value) } })
     .run();
 }
+
+export function getGoals(userId = LOCAL_USER_ID): Goals {
+  return readSetting("goals", goalsSchema, DEFAULT_GOALS, userId);
+}
+
+export function saveGoals(value: Goals, userId = LOCAL_USER_ID) {
+  writeSetting("goals", value, userId);
+}
+
+/** 汎用の設定読み書き（AI学習プランのキャッシュなど） */
+export { readSetting, writeSetting };

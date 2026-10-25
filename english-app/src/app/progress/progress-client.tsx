@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
 import { BookOpenCheck, Clock, Flame, MessagesSquare, PenLine, RotateCcw, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DailyChart } from "@/components/stats/daily-chart";
+import { ActivityChart } from "@/components/stats/activity-chart";
+import { ScoreTrendChart } from "@/components/stats/score-trend-chart";
+import { Progress } from "@/components/ui/progress";
+import { Segmented } from "@/components/ui/segmented";
 import { StatTile } from "@/components/stats/stat-tile";
 import { useFetch } from "@/hooks/use-fetch";
+import { apiFetch, errorMessage } from "@/lib/client/api";
+import { weekStart } from "@/lib/learning/dates";
 import { MODE_INFO, type ConversationMode } from "@/lib/learning/lesson";
 import { formatDurationJa } from "@/lib/utils";
 import type { Stats } from "@/lib/server/stats";
@@ -21,7 +28,19 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function ProgressClient() {
-  const { data: stats, error } = useFetch<Stats>("/api/stats");
+  const { data: stats, error, setData } = useFetch<Stats>("/api/stats");
+  const [range, setRange] = useState<"daily" | "weekly">("daily");
+  const [editingGoal, setEditingGoal] = useState(false);
+
+  const saveGoal = async (weeklyMinutes: number) => {
+    try {
+      await apiFetch("/api/goals", { method: "PUT", json: { weeklyMinutes } });
+      setData((prev) => (prev ? { ...prev, weeklyGoalMinutes: weeklyMinutes } : prev));
+      setEditingGoal(false);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
 
   if (error) return <p className="text-sm text-destructive">{error}</p>;
 
@@ -49,12 +68,76 @@ export function ProgressClient() {
           </section>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">日別の学習時間（直近14日）</CardTitle>
-              <CardDescription>棒にカーソルを合わせる（タップする）と内訳が表示されます</CardDescription>
+            <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+              <div>
+                <CardTitle className="text-base">今週の目標</CardTitle>
+                <CardDescription className="mt-1">月曜日から日曜日までの学習時間</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setEditingGoal((v) => !v)}>
+                {editingGoal ? "閉じる" : "目標を変更"}
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold tabular-nums">{formatDurationJa(stats.thisWeekSeconds)}</span>
+                <span className="text-sm text-muted-foreground">目標 {formatDurationJa(stats.weeklyGoalMinutes * 60)}</span>
+              </div>
+              <Progress value={Math.min(100, (stats.thisWeekSeconds / 60 / stats.weeklyGoalMinutes) * 100)} aria-label="今週の目標の達成率" />
+              <p className="text-sm text-muted-foreground">
+                {stats.thisWeekSeconds / 60 >= stats.weeklyGoalMinutes
+                  ? "今週の目標を達成しました！"
+                  : `あと ${formatDurationJa(stats.weeklyGoalMinutes * 60 - stats.thisWeekSeconds)} で達成です`}
+              </p>
+              {editingGoal && (
+                <Segmented
+                  ariaLabel="週の目標時間"
+                  value={stats.weeklyGoalMinutes}
+                  onChange={(v) => void saveGoal(v)}
+                  options={[60, 120, 180, 300, 420].map((m) => ({ value: m, label: formatDurationJa(m * 60) }))}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+              <div>
+                <CardTitle className="text-base">学習時間の推移</CardTitle>
+                <CardDescription className="mt-1">棒にカーソルを合わせる（タップする）と内訳が表示されます</CardDescription>
+              </div>
+              <Segmented
+                className="w-auto"
+                ariaLabel="期間"
+                value={range}
+                onChange={setRange}
+                options={[
+                  { value: "daily" as const, label: "日別（30日）" },
+                  { value: "weekly" as const, label: "週別（12週）" },
+                ]}
+              />
             </CardHeader>
             <CardContent>
-              <DailyChart daily={stats.daily} today={stats.today} />
+              {range === "daily" ? (
+                <ActivityChart data={stats.daily} currentKey={stats.today} mode="daily" />
+              ) : (
+                <ActivityChart data={stats.weekly} currentKey={weekStart(stats.today)} mode="weekly" />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessagesSquare className="size-4 text-primary" /> 英会話スコアの推移
+              </CardTitle>
+              <CardDescription>会話後レポートの4項目（文法・語彙・流暢さ・継続力）の平均。直近12回</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats.conversationTrend.length === 0 ? (
+                <p className="text-sm text-muted-foreground">英会話のレポートが作成されると、ここにスコアの推移が表示されます。</p>
+              ) : (
+                <ScoreTrendChart points={stats.conversationTrend} />
+              )}
             </CardContent>
           </Card>
 
@@ -64,26 +147,23 @@ export function ProgressClient() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Target className="size-4 text-primary" /> 苦手な文法ランキング
                 </CardTitle>
-                <CardDescription>平均点が低い順</CardDescription>
+                <CardDescription>文法問題の誤答と、英会話・英作文での間違いから判定</CardDescription>
               </CardHeader>
               <CardContent>
                 {stats.weakCategories.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">文法問題を解くと、ここに苦手分野が表示されます。</p>
+                  <p className="text-sm text-muted-foreground">文法問題・英会話・英作文で間違えると、ここに苦手分野が表示されます。</p>
                 ) : (
                   <ol className="space-y-3">
                     {stats.weakCategories.map((w, i) => (
                       <li key={w.category} className="flex items-center gap-3">
                         <span className="w-5 text-sm font-bold text-muted-foreground">{i + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className="truncate text-sm font-medium">{w.label}</span>
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              平均 {w.avgScore}点・誤答 {w.wrong}/{w.attempts}
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary">
-                            <div className="h-full rounded-full bg-primary" style={{ width: `${w.avgScore * 10}%` }} />
-                          </div>
+                          <p className="truncate text-sm font-medium">{w.label}</p>
+                          <p className="text-xs text-muted-foreground tabular-nums">
+                            {w.attempts > 0 && `文法問題 誤答 ${w.wrong}/${w.attempts}（平均 ${w.avgScore}点）`}
+                            {w.attempts > 0 && w.usageMistakes > 0 && "・"}
+                            {w.usageMistakes > 0 && `会話・英作文での間違い ${w.usageMistakes}回`}
+                          </p>
                         </div>
                         <Button size="sm" variant="outline" asChild>
                           <Link href={`/grammar?category=${w.category}`}>練習</Link>
@@ -113,6 +193,32 @@ export function ProgressClient() {
               </CardContent>
             </Card>
           </div>
+
+          {stats.categoryAccuracy.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BookOpenCheck className="size-4 text-primary" /> 分野別の正答率
+                </CardTitle>
+                <CardDescription>文法問題の正答率が低い順</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {stats.categoryAccuracy.map((c) => (
+                  <Link key={c.category} href={`/grammar?category=${c.category}`} className="block rounded-lg hover:bg-secondary/50">
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="font-medium">{c.label}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {c.accuracy}%（{c.attempts}問）
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${c.accuracy}%` }} />
+                    </div>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

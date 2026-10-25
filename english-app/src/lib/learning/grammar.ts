@@ -12,10 +12,20 @@ export const GRAMMAR_CATEGORIES = [
   { id: "relative", label: "関係代名詞", topic: "relative pronouns and clauses (who, which, that, whose, where, omission)" },
   { id: "subjunctive", label: "仮定法", topic: "conditionals and the subjunctive (if I were..., I wish..., would have done)" },
   { id: "prepositions", label: "前置詞", topic: "prepositions of time, place and movement (in/on/at, for/since, by/until)" },
+  { id: "passive", label: "受動態", topic: "the passive voice (be + past participle, by-phrases, passive in different tenses)" },
+  { id: "participles", label: "分詞", topic: "participles as adjectives (a broken cup, a man standing there), -ing vs -ed adjectives (interesting / interested)" },
+  { id: "indirect_questions", label: "間接疑問文", topic: "indirect questions and embedded clauses (Do you know where the station is? I wonder if...)" },
+  { id: "conjunctions", label: "接続詞", topic: "conjunctions (because, so, although, while, when, if, unless, as soon as)" },
+  { id: "articles_nouns", label: "冠詞・名詞", topic: "articles a/an/the/zero article, countable and uncountable nouns, some/any, much/many" },
+  { id: "phrasal_verbs", label: "句動詞", topic: "common phrasal verbs in daily life (pick up, look for, run out of, get along with, put off)" },
   { id: "conversation", label: "日常会話の構文", topic: "useful everyday conversation patterns (Would you like..., How about..., I'm looking for..., Could you...?)" },
 ] as const;
 export type GrammarCategoryId = (typeof GRAMMAR_CATEGORIES)[number]["id"];
 export const GRAMMAR_CATEGORY_IDS = GRAMMAR_CATEGORIES.map((c) => c.id) as [GrammarCategoryId, ...GrammarCategoryId[]];
+
+export function isGrammarCategory(id: string): id is GrammarCategoryId {
+  return GRAMMAR_CATEGORIES.some((c) => c.id === id);
+}
 
 export function grammarCategoryLabel(id: string): string {
   return GRAMMAR_CATEGORIES.find((c) => c.id === id)?.label ?? id;

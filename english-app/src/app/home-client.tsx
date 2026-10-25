@@ -1,15 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, Clock, Flame, History, MessagesSquare, PenLine, RotateCcw, Target } from "lucide-react";
+import { BookOpenCheck, Clock, Flame, History, MessagesSquare, PenLine, RotateCcw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Segmented } from "@/components/ui/segmented";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatTile } from "@/components/stats/stat-tile";
+import { PlanCard } from "@/components/home/plan-card";
 import { useFetch } from "@/hooks/use-fetch";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { buildPlan, PLAN_MINUTES, type PlanMinutes } from "@/lib/learning/planner";
 import { grammarCategoryLabel } from "@/lib/learning/grammar";
 import { formatDurationJa } from "@/lib/utils";
 import type { Stats } from "@/lib/server/stats";
@@ -21,7 +19,6 @@ const MENU = [
   { href: "/review", title: "復習", desc: "間違えた表現をもう一度", icon: RotateCcw },
 ];
 
-const PLAN_ICON = { review: RotateCcw, grammar: BookOpenCheck, conversation: MessagesSquare, writing: PenLine };
 
 function greeting() {
   const h = new Date().getHours();
@@ -33,20 +30,7 @@ function greeting() {
 
 export function HomeClient() {
   const { data: stats, error } = useFetch<Stats>("/api/stats");
-  const [planMinutes, setPlanMinutes] = useLocalStorage<PlanMinutes>("plan-minutes", 15);
-
   const lastConversation = stats?.recentConversations[0] ?? null;
-  const plan = stats
-    ? buildPlan(
-        {
-          reviewDue: stats.review.due,
-          weakCategory: stats.weakCategories[0]?.category ?? null,
-          lastGrammarCategory: stats.lastGrammarCategory,
-          daysSinceConversation: stats.daysSinceLastConversation,
-        },
-        planMinutes,
-      )
-    : [];
 
   return (
     <div className="space-y-7">
@@ -77,53 +61,7 @@ export function HomeClient() {
         )}
       </section>
 
-      <Card>
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-          <div>
-            <CardTitle>今日のおすすめ学習</CardTitle>
-            <CardDescription className="mt-1">復習の期限・苦手分野・最近の学習から自動で組み立てています</CardDescription>
-          </div>
-          <Segmented
-            className="w-auto"
-            value={planMinutes}
-            onChange={setPlanMinutes}
-            options={PLAN_MINUTES.map((m) => ({ value: m, label: `${m}分` }))}
-            ariaLabel="学習時間"
-          />
-        </CardHeader>
-        <CardContent>
-          {!stats ? (
-            <Skeleton className="h-32 w-full" />
-          ) : (
-            <ol className="space-y-2">
-              {plan.map((item, i) => {
-                const Icon = PLAN_ICON[item.kind];
-                return (
-                  <li key={item.kind}>
-                    <Link
-                      href={item.href}
-                      className="group flex items-center gap-3 rounded-xl border bg-card p-3.5 transition-all hover:border-primary/40 hover:bg-accent/50 active:scale-[0.99]"
-                    >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1.5 font-medium">
-                          <Icon className="size-4 text-primary" />
-                          {item.title}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{item.detail}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground tabular-nums">約{item.minutes}分</span>
-                      <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
+      <PlanCard stats={stats} />
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">学習メニュー</h2>
