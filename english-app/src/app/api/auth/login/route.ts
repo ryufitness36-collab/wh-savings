@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleRouteError, parseJson } from "@/lib/api";
-import { AUTH_COOKIE, passwordToken, safeEqual } from "@/lib/auth";
+import { AUTH_COOKIE, isHttpsRequest, passwordToken, safeEqual } from "@/lib/auth";
 import { env } from "@/lib/env";
 
 const bodySchema = z.object({ password: z.string().max(200) });
@@ -21,7 +21,8 @@ export async function POST(req: Request) {
     res.cookies.set(AUTH_COOKIE, correct, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      // トンネル経由（https）では secure、Mac の http://localhost では付けない（Safari で保存されないため）
+      secure: isHttpsRequest(req.url, req.headers),
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
